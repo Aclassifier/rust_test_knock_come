@@ -1,0 +1,9 @@
+[package]
+name = "rust_test_knock_come"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flume = { version = "0.12.0", features = ["async", "select"] }
+tokio = { version = "1.52.3", features = ["full"] }
+rand = "0.9"
