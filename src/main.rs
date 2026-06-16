@@ -1,7 +1,8 @@
 // =============================================================================================
 // VERSIONS / COMMITS
 // =============================================================================================
-// 15Jun2026 0.0.010 Fisrt version, runs but no knock-come
+// 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
+// 15Jun2026 0.0.010 First version, runs but no knock-come
 
 use std::time::Duration;
 use tokio::time::sleep;
@@ -18,21 +19,24 @@ enum Message {
 
 // Internal enums to map which branch won the selection
 enum SlaveEvent {
-    HandshakeCompleted,
+    ComeOrDataReceived(Result<Message, flume::RecvError>),
     TimeoutOccurred,
 }
 
 enum MasterEvent {
-    DataReceived(Result<Message, flume::RecvError>),
+    KnockReceived(Result<Message, flume::RecvError>),
     TimeoutOccurred,
 }
 
 
-// Equivalent to an occam process running on a hardware tile
-async fn task_a_slave(sender: flume::Sender<Message>) {
-    let mut counter = 0;
-    // We instantiate the first message BEFORE the loop starts
-    let mut pending_message = Message::SensorData(counter);
+// Equivalent to an XC process running on an XMOS hardware logical core (1 of 8 cores per tile)
+async fn task_a_slave(
+    ch_ab_knock_tx:        flume::Sender<Message>, 
+    ch_ba_come_or_data_rx: flume::Receiver<Message>, 
+    ch_ab_data_tx:         flume::Sender<Message>) 
+{    
+    let mut counter = 0; 
+    let mut pending_message = Message::SensorData(counter); 
     
     loop {
         let random_millis: u64 = {
@@ -42,62 +46,82 @@ async fn task_a_slave(sender: flume::Sender<Message>) {
 
         let (tx_timer, rx_timer) = flume::bounded::<()>(0);
         tokio::spawn(async move {
-            sleep(Duration::from_millis(random_millis)).await;
+            sleep(Duration::from_millis(random_millis)).await; 
             let _ = tx_timer.send_async(()).await; 
         });
 
-        // We try to send the 'pending_message' that we have standing ready
         let event = flume::Selector::new()
-            .send(&sender, pending_message.clone(), |_| SlaveEvent::HandshakeCompleted)
+            .recv(&ch_ba_come_or_data_rx, |res| SlaveEvent::ComeOrDataReceived(res))
             .recv(&rx_timer, |_| SlaveEvent::TimeoutOccurred)
             .wait();
 
         match event {
-            SlaveEvent::HandshakeCompleted => {
-                // Since the message was delivered, we prepare a NEW message for the next round
+            SlaveEvent::ComeOrDataReceived(Ok(Message::SensorData(data))) => {
+                println!("[Slave] Received COME or DATA: {}", data);
+                // In a complete knock-come, the slave would now send the actual data over ch_ab_data_tx
+                let _ = ch_ab_data_tx.send_async(pending_message.clone()).await;
+                
                 counter += 1;
                 pending_message = Message::SensorData(counter);
             }
+            SlaveEvent::ComeOrDataReceived(Err(_)) => {
+                break;
+            }
             SlaveEvent::TimeoutOccurred => {
-                // The timer won! We do nothing with 'pending_message'.
-                // It remains exactly as it is, and is carried into the next iteration of the loop.
+                let _ = ch_ab_knock_tx.send_async(pending_message.clone()).await; 
                 println!("[Slave] Local house-keeping tick... (Message {} is saved for retry)", counter);
             }
         }
-
-        sleep(Duration::from_secs(1)).await;
+        // REMOVED: sleep(Duration::from_secs(1)) to prevent blocking the master's rendezvous answer
     }
 }
 
 
 // Equivalent to the master/coordinating process
-async fn task_b_master(receiver: flume::Receiver<Message>) {
+async fn task_b_master(
+    ch_ab_knock_rx:        flume::Receiver<Message>, 
+    ch_ba_come_or_data_tx: flume::Sender<Message>, 
+    ch_ab_data_rx:         flume::Receiver<Message>)
+{
+    let counter = 0; 
+    let pending_message = Message::SensorData(counter); 
+
     loop {
         let random_millis = {
             let mut rng = rand::rng();
             rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS) 
         };
 
-        // 1. Encapsulate the master watchdog timer as a CSP event
         let (tx_timer, rx_timer) = flume::bounded::<()>(0);
         tokio::spawn(async move {
             sleep(Duration::from_millis(random_millis)).await;
             let _ = tx_timer.send_async(()).await;
         });
 
-        // 2. CSP Selector for the master
         let event = flume::Selector::new()
-            .recv(&receiver, |res| MasterEvent::DataReceived(res))
+            .recv(&ch_ab_knock_rx, |res| MasterEvent::KnockReceived(res)) 
             .recv(&rx_timer, |_| MasterEvent::TimeoutOccurred)
             .wait();
 
-        // 3. Handle the won branch deterministically
         match event {
-            MasterEvent::DataReceived(Ok(Message::SensorData(data))) => {
-                println!("[Master] Received sensor reading: {}", data);
-            }
-            MasterEvent::DataReceived(Err(_)) => {
-                // Channel was closed (should not happen since tasks run forever)
+            MasterEvent::KnockReceived(Ok(Message::SensorData(data))) => {
+                println!("[Master] Received KNOCK from slave: {}", data);
+                
+                // Answer the slave with a COME signal
+                let _ = ch_ba_come_or_data_tx.send_async(pending_message.clone()).await; 
+
+                // Now receive the actual data from the slave synchronously
+                match ch_ab_data_rx.recv_async().await {
+                    Ok(Message::SensorData(data)) => {
+                        println!("[Master] Handshake complete! Received data: {}", data);
+                    }
+                    Err(_) => {
+                        println!("[Master] Protocol broken: Slave channel was closed!");
+                        break; 
+                    }
+                }
+            } // <--- FIXED: Added this missing closing brace to close the KnockReceived arm properly
+            MasterEvent::KnockReceived(Err(_)) => {
                 break;
             }
             MasterEvent::TimeoutOccurred => {
@@ -107,17 +131,19 @@ async fn task_b_master(receiver: flume::Receiver<Message>) {
     }
 }
 
+const CHAN_STREAMING_CAP_1: usize = 1;
+const CHAN_SYNCH_CAP_0:     usize = 0; 
+
 #[tokio::main]
 async fn main() {
-    // A true 0-capacity rendezvous channel
-    let (sender, receiver) = flume::bounded::<Message>(0);
+    let (ch_ab_knock_tx,        ch_ab_knock_rx)        = flume::bounded::<Message>(CHAN_STREAMING_CAP_1);
+    let (ch_ba_come_or_data_tx, ch_ba_come_or_data_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
+    let (ch_ab_data_tx,         ch_ab_data_rx)         = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
 
-    // 1. Start the tasks and capture their JoinHandles
-    let task_a_slave_handle = tokio::spawn(task_a_slave(sender));
-    let task_b_master_handle = tokio::spawn(task_b_master(receiver));
+    let task_a_slave_handle = tokio::spawn(task_a_slave(ch_ab_knock_tx, ch_ba_come_or_data_rx, ch_ab_data_tx));
+    let task_b_master_handle = tokio::spawn(task_b_master(ch_ab_knock_rx, ch_ba_come_or_data_tx, ch_ab_data_rx));
 
     println!("System running. Tasks joined in a PAR-equivalent block.");
 
-    // 2. This is the exact equivalent to a PAR block in occam.
     let _ = tokio::join!(task_a_slave_handle, task_b_master_handle);
 }
