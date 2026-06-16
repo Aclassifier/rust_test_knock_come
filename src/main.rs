@@ -1,6 +1,8 @@
 // =============================================================================================
 // VERSIONS / COMMITS
 // =============================================================================================
+// 16Jun2026 0.0.030 Knock channel converted to a pure signal channel using unit type (). (No data) 
+//                   (Google AI mode added most of the above line itself!)
 // 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
 // 15Jun2026 0.0.010 First version, runs but no knock-come
 
@@ -24,14 +26,14 @@ enum SlaveEvent {
 }
 
 enum MasterEvent {
-    KnockReceived(Result<Message, flume::RecvError>),
+    KnockReceived(Result<(), flume::RecvError>), // No data
     TimeoutOccurred,
 }
 
 
 // Equivalent to an XC process running on an XMOS hardware logical core (1 of 8 cores per tile)
 async fn task_a_slave(
-    ch_ab_knock_tx:        flume::Sender<Message>, 
+    ch_ab_knock_tx:        flume::Sender<()>, // No data
     ch_ba_come_or_data_rx: flume::Receiver<Message>, 
     ch_ab_data_tx:         flume::Sender<Message>) 
 {    
@@ -58,7 +60,6 @@ async fn task_a_slave(
         match event {
             SlaveEvent::ComeOrDataReceived(Ok(Message::SensorData(data))) => {
                 println!("[Slave] Received COME or DATA: {}", data);
-                // In a complete knock-come, the slave would now send the actual data over ch_ab_data_tx
                 let _ = ch_ab_data_tx.send_async(pending_message.clone()).await;
                 
                 counter += 1;
@@ -68,18 +69,18 @@ async fn task_a_slave(
                 break;
             }
             SlaveEvent::TimeoutOccurred => {
-                let _ = ch_ab_knock_tx.send_async(pending_message.clone()).await; 
-                println!("[Slave] Local house-keeping tick... (Message {} is saved for retry)", counter);
+                // Sends a pure signal () instead of the data message
+                let _ = ch_ab_knock_tx.send_async(()).await; // No data
+                println!("[Slave] Local house-keeping tick... (Knock signal sent, message {} saved)", counter);
             }
         }
-        // REMOVED: sleep(Duration::from_secs(1)) to prevent blocking the master's rendezvous answer
     }
 }
 
 
 // Equivalent to the master/coordinating process
 async fn task_b_master(
-    ch_ab_knock_rx:        flume::Receiver<Message>, 
+    ch_ab_knock_rx:        flume::Receiver<()>, // No data
     ch_ba_come_or_data_tx: flume::Sender<Message>, 
     ch_ab_data_rx:         flume::Receiver<Message>)
 {
@@ -104,13 +105,11 @@ async fn task_b_master(
             .wait();
 
         match event {
-            MasterEvent::KnockReceived(Ok(Message::SensorData(data))) => {
-                println!("[Master] Received KNOCK from slave: {}", data);
+            MasterEvent::KnockReceived(Ok(())) => { // Matches the pure signal ()
+                println!("[Master] Received KNOCK signal from slave");
                 
-                // Answer the slave with a COME signal
                 let _ = ch_ba_come_or_data_tx.send_async(pending_message.clone()).await; 
 
-                // Now receive the actual data from the slave synchronously
                 match ch_ab_data_rx.recv_async().await {
                     Ok(Message::SensorData(data)) => {
                         println!("[Master] Handshake complete! Received data: {}", data);
@@ -120,27 +119,28 @@ async fn task_b_master(
                         break; 
                     }
                 }
-            } // <--- FIXED: Added this missing closing brace to close the KnockReceived arm properly
+            }
             MasterEvent::KnockReceived(Err(_)) => {
                 break;
             }
             MasterEvent::TimeoutOccurred => {
-                println!("[Master] Watchdog warning: No data received lately!");
+                println!("[Master] Watchdog warning: No knock received lately!");
             }
         }
     }
 }
 
-const CHAN_STREAMING_CAP_1: usize = 1;
+const CHAN_STREAMING_CAP_1: usize = 1; // Even if it contains no data
 const CHAN_SYNCH_CAP_0:     usize = 0; 
 
 #[tokio::main]
 async fn main() {
-    let (ch_ab_knock_tx,        ch_ab_knock_rx)        = flume::bounded::<Message>(CHAN_STREAMING_CAP_1);
+    // The knock channel is now defined with the unit type ()
+    let (ch_ab_knock_tx,             ch_ab_knock_rx)             = flume::bounded::<()>(CHAN_STREAMING_CAP_1);
     let (ch_ba_come_or_data_tx, ch_ba_come_or_data_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
     let (ch_ab_data_tx,         ch_ab_data_rx)         = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
 
-    let task_a_slave_handle = tokio::spawn(task_a_slave(ch_ab_knock_tx, ch_ba_come_or_data_rx, ch_ab_data_tx));
+    let task_a_slave_handle  = tokio::spawn(task_a_slave(ch_ab_knock_tx, ch_ba_come_or_data_rx, ch_ab_data_tx));
     let task_b_master_handle = tokio::spawn(task_b_master(ch_ab_knock_rx, ch_ba_come_or_data_tx, ch_ab_data_rx));
 
     println!("System running. Tasks joined in a PAR-equivalent block.");
