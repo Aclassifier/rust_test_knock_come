@@ -2,7 +2,8 @@
 // VERSIONS / COMMITS
 // =============================================================================================
 // 
-const VERSION: &str = "0.0.100"; 
+const VERSION: &str = "0.0.101"; 
+// 17Jun2026 0.0.101 More comments
 // 17Jun2026 0.0.100 More verification etc. Runs
 // 16Jun2026 0.0.050 Final functional version using Tokio biased select to match XC hardware priority
 // 16Jun2026 0.0.040 Integrated idiomatic Rust enums with data payload and state variables
@@ -226,6 +227,11 @@ async fn task_b_master(
 
         // biased; matches your ORDERED_PRI_SELECT from XC perfectly!
         // Incoming Knocks are ALWAYS prioritized over the watchdog timer.
+
+        // We use tokio::select! instead of flume::Selector to get strict event priority (PRI ALT / [[ordered]] select). 
+        // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
+        // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers.
+
         tokio::select! {
             biased;
 
