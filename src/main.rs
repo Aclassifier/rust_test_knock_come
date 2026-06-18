@@ -1,8 +1,13 @@
 // =============================================================================================
 // VERSIONS / COMMITS
+// Øyvind Teig, Trondheim, Norway
+// This was "my" first Rust code. Thanks to pair programming with Google AI!
+// See https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
 // =============================================================================================
 // 
 const VERSION: &str = "0.0.210";
+//
+// 18Jun2026 0.0.210 New heading above
 // 18Jun2026 0.0.210 println_iff is new, to control printing
 // 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
 //                   message type more generic so that they don't have the same names as task variables 
