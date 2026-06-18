@@ -2,7 +2,9 @@
 // VERSIONS / COMMITS
 // =============================================================================================
 // 
-const VERSION: &str = "0.0.101"; 
+const VERSION: &str = "0.0.200";
+// 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
+//                   message type more generic so that they don't have the same names as task variables 
 // 17Jun2026 0.0.101 More comments
 // 17Jun2026 0.0.100 More verification etc. Runs
 // 16Jun2026 0.0.050 Final functional version using Tokio biased select to match XC hardware priority
@@ -15,8 +17,11 @@ use std::time::Duration;
 use tokio::time::sleep;
 use rand::Rng;
 
-const RANDOM_VAL_MIN_MS: u64 =   0; 
-const RANDOM_VAL_MAX_MS: u64 = 100; 
+const RANDOM_VAL_MIN_MS:  u64 =   0; 
+const RANDOM_VAL_MAX_MS:  u64 = 100; 
+
+type ExchangedDataT = u32;
+const DATA_FIRST_AND_INC: ExchangedDataT = 1; 
 
 // #[derive(Default)] automatically creates an init function under the hood that sets all u32 fields to 0
 #[derive(Default, Debug, Clone, Copy)]
@@ -43,11 +48,11 @@ fn update_fairness_cnts(cnts: &mut Cnts) {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Message {
-    // KnockNoData not needed. Usage ch_ab_knock_tx.send_async(()).await :> ch_ab_knock_rx.recv_async() with unit type
-    SpontaneousData { data_from_task_b_master: u32 }, 
+    // fields are simply named 'val' since the variant tells us the context
+    SpontaneousData { val: ExchangedDataT }, 
     Come,                                             
-    ComeData { data_from_task_b_master: u32 }, 
-    SlaveData { data_from_task_a_slave: u32 }, 
+    ComeData { val: ExchangedDataT }, 
+    SlaveData { val: ExchangedDataT }, 
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -133,8 +138,8 @@ async fn task_a_slave(
     ch_ab_bidir_tx: flume::Sender<Message>,
 ) {    
     let mut state = KnockComeState::SlaveSentDataNowReady;
-    let mut data_from_task_a_slave: u32 = 10; 
-    let mut _data_from_task_b_master: u32; 
+    let mut data_from_task_a_slave: ExchangedDataT = DATA_FIRST_AND_INC; 
+    let mut data_from_task_b_master: ExchangedDataT = 0; // History variable for SpontaneousData
     
     loop {
         let random_millis: u64 = {
@@ -142,11 +147,8 @@ async fn task_a_slave(
             rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)
         };
 
-        // We use a native Tokio timer instead of a heavy background task
         let local_timer = sleep(Duration::from_millis(random_millis));
 
-        // biased; matches your ORDERED_PRI_SELECT from XC perfectly!
-        // Channel reception is ALWAYS prioritized over the local timer.
         tokio::select! {
             biased;
 
@@ -154,51 +156,51 @@ async fn task_a_slave(
             msg_res = ch_ab_bidir_rx.recv_async() => {
                 if let Ok(msg) = msg_res {
                     match msg {
-                        Message::SpontaneousData { data_from_task_b_master } => {
-                            _data_from_task_b_master = data_from_task_b_master;
-                            println!("[Slave] Processed spontaneous data from Master: {}", _data_from_task_b_master);
+                        Message::SpontaneousData { val } => {
+                            // CORRECTED: Verify sequence only for actual spontaneous data stream
+                            assert_eq!(
+                                val, 
+                                data_from_task_b_master + DATA_FIRST_AND_INC,
+                                "[Slave] Data sequence gap detected in SpontaneousData!"
+                            );
+                            
+                            // Update history tracking for spontaneous data
+                            data_from_task_b_master = val;
+                            println!("[Slave] Processed spontaneous data from Master: {}", data_from_task_b_master);
                         }
                         Message::Come => {
-                            // Check previous state and transition to SlaveGotCome
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
                             
-                            let reply = Message::SlaveData { data_from_task_a_slave };
+                            let reply = Message::SlaveData { val: data_from_task_a_slave };
                             let _ = ch_ab_bidir_tx.send_async(reply).await;
                             println!("[Slave] Handshake complete (Pure COME). Sent SlaveData: {}", data_from_task_a_slave);
                             
-                            data_from_task_a_slave += 10; 
-                            
-                            // Check previous state and return to initial ready state
+                            data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
-                        Message::ComeData { data_from_task_b_master } => {
-                            _data_from_task_b_master = data_from_task_b_master;
-                            println!("[Slave] Processed piggy-backed data from Master: {}", _data_from_task_b_master);
+                        Message::ComeData { val } => {
+                            // CORRECTED: Piggy-backed data is uninteresting, skip assert and history tracking
+                            println!("[Slave] Received COME_DATA. Piggy-backed value {} ignored.", val);
                             
-                            // Check previous state and transition to SlaveGotCome
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
                             
-                            let reply = Message::SlaveData { data_from_task_a_slave };
+                            let reply = Message::SlaveData { val: data_from_task_a_slave };
                             let _ = ch_ab_bidir_tx.send_async(reply).await;
                             println!("[Slave] Handshake complete (COME_DATA). Sent SlaveData: {}", data_from_task_a_slave);
                             
-                            data_from_task_a_slave += 10; 
-                            
-                            // Check previous state and return to initial ready state
+                            data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
                         _ => panic!("[Slave] Unexpected packet type received!"),
                     }
                 } else {
-                    break; // Channel closed
+                    break; 
                 }
             }
 
-            // CASE 2: Local Timer (Only triggers if we haven't sent a knock yet, matching XC)
+            // CASE 2: Local Timer
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
                 let _ = ch_ab_knock_tx.send_async(()).await; 
-                
-                // Check previous state and transition to SlaveSentKnock
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock");
             }
@@ -213,7 +215,8 @@ async fn task_b_master(
     ch_ab_bidir_tx: flume::Sender<Message>, 
     ch_ab_bidir_rx: flume::Receiver<Message>, 
 ) {
-    let mut master_data_counter: u32 = 100;
+    let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC; 
+    let mut data_from_task_a_slave: ExchangedDataT =   0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut my_cnts = Cnts::default(); 
     let mut state = KnockComeState::MasterGotDataNowReady;
 
@@ -223,10 +226,11 @@ async fn task_b_master(
             rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS) 
         };
 
+        // Renamed to local_timer to match the slave exactly
         let local_timer = sleep(Duration::from_millis(random_millis));
 
         // biased; matches your ORDERED_PRI_SELECT from XC perfectly!
-        // Incoming Knocks are ALWAYS prioritized over the watchdog timer.
+        // Incoming Knocks are ALWAYS prioritized over the local timer.
 
         // We use tokio::select! instead of flume::Selector to get strict event priority (PRI ALT / [[ordered]] select). 
         // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
@@ -242,13 +246,13 @@ async fn task_b_master(
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
                     
                     let response = if random_millis % 2 == 0 {
-                        master_data_counter += 10;
-                        Message::ComeData { data_from_task_b_master: master_data_counter }
+                        let data_from_task_b_dummy_for_come: ExchangedDataT = 0;
+                        Message::ComeData { val: data_from_task_b_dummy_for_come }
                     } else {
                         Message::Come
                     };
 
-                    // FIXED: Actually transmit the COME / COME_DATA response to the slave
+                    // Transmit the COME / COME_DATA response to the slave
                     let _ = ch_ab_bidir_tx.send_async(response).await; 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
@@ -257,7 +261,16 @@ async fn task_b_master(
 
                     // Verify packet type and payload (matches xassert logic in XC)
                     match received_res {
-                        Ok(Message::SlaveData { data_from_task_a_slave }) => {
+                        Ok(Message::SlaveData { val }) => {
+                            // Verify that incoming slave data matches history + incremental step
+                            assert_eq!(
+                                val,
+                                data_from_task_a_slave + DATA_FIRST_AND_INC,
+                                "[Master] Data sequence gap detected in SlaveData!"
+                            );
+
+                            // Update history tracking for slave data
+                            data_from_task_a_slave = val;
                             println!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave);
                             
                             // Update statistics tracking (equivalent to XC metrics)
@@ -282,21 +295,21 @@ async fn task_b_master(
                 }
             }
 
-            // CASE 2: Watchdog Timer Ticked
+            // CASE 2: Local Timer Ticked
             _ = local_timer => {
-                master_data_counter += 10;
-                let spontaneous_msg = Message::SpontaneousData { data_from_task_b_master: master_data_counter };
+                // Create the message with the CURRENT value first
+                let spontaneous_msg = Message::SpontaneousData { val: data_from_task_b_master };
                 
-                // Use try_send to match the non-blocking nature of spontaneous data delivery
                 if let Ok(()) = ch_ab_bidir_tx.try_send(spontaneous_msg) {
-                    println!("[Master] Watchdog timeout. Sent spontaneous data: {}", master_data_counter);
+                    println!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master);
                     
-                    // Update statistics tracking (equivalent to XC metrics)
+                    // INCREMENT AFTER SENDING (Matches your protocol requirement)
+                    data_from_task_b_master += DATA_FIRST_AND_INC;
+                    
+                    // Update statistics tracking
                     my_cnts.sent_cnt += 1;
                     my_cnts.rec_sent_cnt += 1;
                     my_cnts.sum_sent_cnt += 1;
-                    
-                    // Calculate and evaluate protocol fairness
                     update_fairness_cnts(&mut my_cnts);
                 } else {
                     // Discard silently if slave is busy, avoiding structural deadlocks
