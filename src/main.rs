@@ -1,13 +1,16 @@
 // =============================================================================================
-// VERSIONS / COMMITS
+// THE KNOCK-COME DEADLOCK FREE PATTERN
 // Øyvind Teig, Trondheim, Norway
-// This was "my" first Rust code. Thanks to pair programming with Google AI!
-// See https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
-// =============================================================================================
-// 
+//     This was "my" first Rust code. Thanks to pair programming with Google AI!
+// Blog note:
+//     https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
+// GitHub:
+//     https://github.com/Aclassifier/rust_test_knock_come
+// VERSIONS / COMMITS
+//
 const VERSION: &str = "0.0.210";
 //
-// 18Jun2026 0.0.210 New heading above
+// 18Jun2026 0.0.210 New heading above (2)
 // 18Jun2026 0.0.210 println_iff is new, to control printing
 // 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
 //                   message type more generic so that they don't have the same names as task variables 
@@ -18,6 +21,7 @@ const VERSION: &str = "0.0.210";
 // 16Jun2026 0.0.030 Knock channel converted to a pure signal channel using unit type ()
 // 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
 // 15Jun2026 0.0.010 First version, runs but no knock-come
+// =============================================================================================
 
 use std::time::Duration;
 use tokio::time::sleep;
