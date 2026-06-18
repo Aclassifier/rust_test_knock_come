@@ -2,7 +2,8 @@
 // VERSIONS / COMMITS
 // =============================================================================================
 // 
-const VERSION: &str = "0.0.200";
+const VERSION: &str = "0.0.210";
+// 18Jun2026 0.0.210 println_iff is new, to control printing
 // 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
 //                   message type more generic so that they don't have the same names as task variables 
 // 17Jun2026 0.0.101 More comments
@@ -16,6 +17,34 @@ const VERSION: &str = "0.0.200";
 use std::time::Duration;
 use tokio::time::sleep;
 use rand::Rng;
+
+// =============================================================================================
+// CONTROL LOGGING
+// =============================================================================================
+//
+#[allow(dead_code)] // Tells Rust it is okay that some variants (like None) are not in active use right now
+#[derive(Copy, Clone, PartialEq)]
+enum LogLevel {
+    None,
+    CountersOnly,
+    All,
+}
+
+// Set this to choose what you want to see
+const CURRENT_LOG_LEVEL: LogLevel = LogLevel::All;
+
+// Central logging function that filters everything
+fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
+    if CURRENT_LOG_LEVEL == LogLevel::All && (level == LogLevel::All || level == LogLevel::CountersOnly) {
+        println!("{}", args);
+    } else if CURRENT_LOG_LEVEL == LogLevel::CountersOnly && level == LogLevel::CountersOnly {
+        println!("{}", args);
+    }
+}
+
+// =============================================================================================
+// CODE PROPER
+// =============================================================================================
 
 const RANDOM_VAL_MIN_MS:  u64 =   0; 
 const RANDOM_VAL_MAX_MS:  u64 = 100; 
@@ -166,28 +195,23 @@ async fn task_a_slave(
                             
                             // Update history tracking for spontaneous data
                             data_from_task_b_master = val;
-                            println!("[Slave] Processed spontaneous data from Master: {}", data_from_task_b_master);
+                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_task_b_master));
                         }
                         Message::Come => {
-                            state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
-                            
+                            state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);                           
                             let reply = Message::SlaveData { val: data_from_task_a_slave };
-                            let _ = ch_ab_bidir_tx.send_async(reply).await;
-                            println!("[Slave] Handshake complete (Pure COME). Sent SlaveData: {}", data_from_task_a_slave);
-                            
+                            let _ = ch_ab_bidir_tx.send_async(reply).await;         
+                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_task_a_slave));                 
                             data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
                         Message::ComeData { val } => {
-                            // CORRECTED: Piggy-backed data is uninteresting, skip assert and history tracking
-                            println!("[Slave] Received COME_DATA. Piggy-backed value {} ignored.", val);
-                            
-                            state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
-                            
+                            // Piggy-backed data is uninteresting, skip assert and history tracking  
+                            println_iff(LogLevel::All, format_args!("[Slave] Received COME_DATA. Piggy-backed value {} ignored.", val));                        
+                            state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);                           
                             let reply = Message::SlaveData { val: data_from_task_a_slave };
                             let _ = ch_ab_bidir_tx.send_async(reply).await;
-                            println!("[Slave] Handshake complete (COME_DATA). Sent SlaveData: {}", data_from_task_a_slave);
-                            
+                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete (COME_DATA). Sent SlaveData: {}", data_from_task_a_slave));                                                                                                
                             data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
@@ -202,7 +226,7 @@ async fn task_a_slave(
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
                 let _ = ch_ab_knock_tx.send_async(()).await; 
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
-                println!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock");
+                println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
         }
     }
@@ -242,9 +266,8 @@ async fn task_b_master(
             // CASE 1: Receive Knock from Slave
             knock_res = ch_ab_knock_rx.recv_async() => {
                 if let Ok(()) = knock_res {
-                    println!("[Master] Received KNOCK from slave.");
-                    state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
-                    
+                    println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));                                      
+                    state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);            
                     let response = if random_millis % 2 == 0 {
                         let data_from_task_b_dummy_for_come: ExchangedDataT = 0;
                         Message::ComeData { val: data_from_task_b_dummy_for_come }
@@ -268,16 +291,13 @@ async fn task_b_master(
                                 data_from_task_a_slave + DATA_FIRST_AND_INC,
                                 "[Master] Data sequence gap detected in SlaveData!"
                             );
-
                             // Update history tracking for slave data
                             data_from_task_a_slave = val;
-                            println!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave);
-                            
+                            println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave));                          
                             // Update statistics tracking (equivalent to XC metrics)
                             my_cnts.rec_cnt += 1;
                             my_cnts.rec_sent_cnt += 1;
-                            my_cnts.sum_rec_cnt += 1;
-                            
+                            my_cnts.sum_rec_cnt += 1;                            
                             // Calculate and evaluate protocol fairness
                             update_fairness_cnts(&mut my_cnts);
                         }
@@ -286,7 +306,6 @@ async fn task_b_master(
                             panic!("[Master] Protocol violation or channel closed during payload rendezvous!");
                         }
                     }
-
                     // Complete the sequence by returning to the initial ready state
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotDataNowReady);
 
@@ -301,8 +320,7 @@ async fn task_b_master(
                 let spontaneous_msg = Message::SpontaneousData { val: data_from_task_b_master };
                 
                 if let Ok(()) = ch_ab_bidir_tx.try_send(spontaneous_msg) {
-                    println!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master);
-                    
+                    println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));                    
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
                     data_from_task_b_master += DATA_FIRST_AND_INC;
                     
