@@ -8,8 +8,10 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.210";
+const VERSION: &str = "0.0.300";
 //
+// 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
+//                   ComeData removed because it was simply wrong, since Come always has no data
 // 18Jun2026 0.0.210 New heading above (2)
 // 18Jun2026 0.0.210 println_iff is new, to control printing
 // 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
@@ -40,7 +42,7 @@ enum LogLevel {
 }
 
 // Set this to choose what you want to see
-const CURRENT_LOG_LEVEL: LogLevel = LogLevel::All;
+const CURRENT_LOG_LEVEL: LogLevel = LogLevel::CountersOnly; // None, CountersOnly or All
 
 // Central logging function that filters everything
 fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
@@ -55,8 +57,9 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
 // CODE PROPER
 // =============================================================================================
 
-const RANDOM_VAL_MIN_MS:  u64 =   0; 
-const RANDOM_VAL_MAX_MS:  u64 = 100; 
+const RANDOM_VAL_MIN_MS:  u64 =    0; 
+const RANDOM_VAL_MAX_MS:  u64 =  100; 
+const MAX_SUM_CNT:        u32 = 1000;
 
 type ExchangedDataT = u32;
 const DATA_FIRST_AND_INC: ExchangedDataT = 1; 
@@ -84,12 +87,57 @@ fn update_fairness_cnts(cnts: &mut Cnts) {
     }
 }
 
+fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
+    // Corrected to evaluate the actual relationship between values, 
+    // making it consistent with the cumulative sum logic.
+    let current_sign = if cnts.rec_cnt > cnts.sent_cnt {
+        ">"
+    } else if cnts.rec_cnt < cnts.sent_cnt {
+        "<"
+    } else {
+        "="
+    };
+
+    // Determine the direction sign for cumulative totals (matches your XC logic)
+    let sum_sign = if cnts.sum_rec_cnt > cnts.sum_sent_cnt {
+        ">"
+    } else if cnts.sum_rec_cnt < cnts.sum_sent_cnt {
+        "<"
+    } else {
+        "="
+    };
+
+    // Prints the metrics with clean alignment using tab separators
+    println_iff(
+        LogLevel::CountersOnly,
+        format_args!(
+            "REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {})",
+            cnts.rec_cnt,
+            current_sign,
+            cnts.sent_cnt,
+            cnts.rec_gt_sent_cnt,
+            cnts.rec_eq_sent_cnt,
+            cnts.rec_lt_sent_cnt,
+            cnts.sum_rec_cnt,
+            sum_sign,
+            cnts.sum_sent_cnt
+        ),
+    );
+
+    // Clear interval counters matching your XC behavior exactly
+    cnts.sent_cnt = 0;
+    cnts.rec_cnt = 0;
+    cnts.rec_sent_cnt = 0;
+    cnts.rec_gt_sent_cnt = 0;
+    cnts.rec_eq_sent_cnt = 0;
+    cnts.rec_lt_sent_cnt = 0;
+}
+
 #[derive(Clone, Debug, PartialEq)]
 enum Message {
     // fields are simply named 'val' since the variant tells us the context
     SpontaneousData { val: ExchangedDataT }, 
-    Come,                                             
-    ComeData { val: ExchangedDataT }, 
+    Come, // No data
     SlaveData { val: ExchangedDataT }, 
 }
 
@@ -214,16 +262,6 @@ async fn task_a_slave(
                             data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
-                        Message::ComeData { val } => {
-                            // Piggy-backed data is uninteresting, skip assert and history tracking  
-                            println_iff(LogLevel::All, format_args!("[Slave] Received COME_DATA. Piggy-backed value {} ignored.", val));                        
-                            state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);                           
-                            let reply = Message::SlaveData { val: data_from_task_a_slave };
-                            let _ = ch_ab_bidir_tx.send_async(reply).await;
-                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete (COME_DATA). Sent SlaveData: {}", data_from_task_a_slave));                                                                                                
-                            data_from_task_a_slave += DATA_FIRST_AND_INC; 
-                            state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
-                        }
                         _ => panic!("[Slave] Unexpected packet type received!"),
                     }
                 } else {
@@ -275,17 +313,12 @@ async fn task_b_master(
             // CASE 1: Receive Knock from Slave
             knock_res = ch_ab_knock_rx.recv_async() => {
                 if let Ok(()) = knock_res {
-                    println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));                                      
-                    state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);            
-                    let response = if random_millis % 2 == 0 {
-                        let data_from_task_b_dummy_for_come: ExchangedDataT = 0;
-                        Message::ComeData { val: data_from_task_b_dummy_for_come }
-                    } else {
-                        Message::Come
-                    };
+                    println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));
+                    state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
+                    
+                    // Transmit the clean COME signal to the slave without any payload
+                    let _ = ch_ab_bidir_tx.send_async(Message::Come).await;
 
-                    // Transmit the COME / COME_DATA response to the slave
-                    let _ = ch_ab_bidir_tx.send_async(response).await; 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
                     // Receive the synchronous reply from the slave
@@ -308,7 +341,11 @@ async fn task_b_master(
                             my_cnts.rec_sent_cnt += 1;
                             my_cnts.sum_rec_cnt += 1;                            
                             // Calculate and evaluate protocol fairness
+                                              // Update fairness metrics and check if it's time to print and reset interval counters
                             update_fairness_cnts(&mut my_cnts);
+                            if my_cnts.rec_sent_cnt == MAX_SUM_CNT {
+                                print_and_clear_debug_cnts(&mut my_cnts);
+                            } else { }
                         }
                         _ => {
                             // Enforce strict protocol compliance or catch channel closure
@@ -317,7 +354,6 @@ async fn task_b_master(
                     }
                     // Complete the sequence by returning to the initial ready state
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotDataNowReady);
-
                 } else {
                     break;
                 }
@@ -328,7 +364,7 @@ async fn task_b_master(
                 // Create the message with the CURRENT value first
                 let spontaneous_msg = Message::SpontaneousData { val: data_from_task_b_master };
                 
-                if let Ok(()) = ch_ab_bidir_tx.try_send(spontaneous_msg) {
+                if let Ok(()) = ch_ab_bidir_tx.try_send(spontaneous_msg) { // Not .send_async().await here, even if slave alwasy is ready
                     println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));                    
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
                     data_from_task_b_master += DATA_FIRST_AND_INC;
@@ -338,9 +374,18 @@ async fn task_b_master(
                     my_cnts.rec_sent_cnt += 1;
                     my_cnts.sum_sent_cnt += 1;
                     update_fairness_cnts(&mut my_cnts);
+                    if my_cnts.rec_sent_cnt == MAX_SUM_CNT {
+                        print_and_clear_debug_cnts(&mut my_cnts);
+                    } else { }
                 } else {
-                    // Discard silently if slave is busy, avoiding structural deadlocks
+                    // try_send here is the only way to protect against tokio scheduler delays, since it only sees a queue, not a time.
+                    // In software simulation, if a simultaneous timeout occurs in task_a_slave
+                    // it might be transitioning between loop iterations and 
+                    // not actively polling the rendezvous channel at this exact microsecond.
+                    // We discard the spontaneous data atomically to avoid a software-induced 
+                    // deadlock, allowing task_b_master to process the pending KNOCK on the next loop.
                 }
+
             }
         }
     }
