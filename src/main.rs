@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.310";
+const VERSION: &str = "0.0.311";
 //
+// 19Jun2026 0.0.311 Layout
 // 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
 // 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
 //                   ComeData removed because it was simply wrong, since Come always has no data
@@ -148,6 +149,15 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
     cnts.last_print_time = now; // Reset timer benchmark
 }
 
+fn update_fairness_cnts(cnts: &mut Cnts) {
+    if cnts.rec_cnt > cnts.sent_cnt {
+        cnts.rec_gt_sent_cnt += 1;
+    } else if cnts.rec_cnt < cnts.sent_cnt {
+        cnts.rec_lt_sent_cnt += 1;
+    } else {
+        cnts.rec_eq_sent_cnt += 1;
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 enum Message {
@@ -232,7 +242,6 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
     new_state
 }
 
-
 // Equivalent to task_a_slave in XC
 async fn task_a_slave(
     ch_ab_knock_tx: flume::Sender<()>, 
@@ -292,16 +301,6 @@ async fn task_a_slave(
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
         }
-    }
-}
-
-fn update_fairness_cnts(cnts: &mut Cnts) {
-    if cnts.rec_cnt > cnts.sent_cnt {
-        cnts.rec_gt_sent_cnt += 1;
-    } else if cnts.rec_cnt < cnts.sent_cnt {
-        cnts.rec_lt_sent_cnt += 1;
-    } else {
-        cnts.rec_eq_sent_cnt += 1;
     }
 }
 
