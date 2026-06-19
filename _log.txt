@@ -1,0 +1,24 @@
+ *  Executing task: cargo run --package rust_test_knock_come --bin rust_test_knock_come 
+
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling rust_test_knock_come v0.1.0 (/Users/teig/Documents/_Dokumenter/Oyvind/_PROSJEKT/GitHub/rust/workspace/rust_test_knock_come)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running `target/debug/rust_test_knock_come`
+
+Knock-come running v0.0.300. Tasks started in a PAR-equivalent block
+
+REC 0   =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0)    DT 0.00s
+REC 504 >       SENT 496        (>549= 43 <408) SUM (REC 504 > SENT 496)        DT 35.50s
+REC 511 >       SENT 489        (>749= 25 <226) SUM (REC 1015 > SENT 985)       DT 35.49s
+REC 535 >       SENT 465        (>995= 4 <1)    SUM (REC 1550 > SENT 1450)      DT 34.99s
+REC 504 >       SENT 496        (>871= 35 <94)  SUM (REC 2054 > SENT 1946)      DT 34.86s
+REC 491 <       SENT 509        (>530= 43 <427) SUM (REC 2545 > SENT 2455)      DT 35.41s
+REC 491 <       SENT 509        (>1= 2 <997)    SUM (REC 3036 > SENT 2964)      DT 35.06s
+REC 505 >       SENT 495        (>464= 50 <486) SUM (REC 3541 > SENT 3459)      DT 34.42s
+REC 523 >       SENT 477        (>710= 19 <271) SUM (REC 4064 > SENT 3936)      DT 34.83s
+REC 503 >       SENT 497        (>891= 40 <69)  SUM (REC 4567 > SENT 4433)      DT 33.95s
+REC 516 >       SENT 484        (>843= 66 <91)  SUM (REC 5083 > SENT 4917)      DT 35.24s
+REC 503 >       SENT 497        (>570= 20 <410) SUM (REC 5586 > SENT 5414)      DT 34.61s
+REC 501 >       SENT 499        (>883= 21 <96)  SUM (REC 6087 > SENT 5913)      DT 34.01s
