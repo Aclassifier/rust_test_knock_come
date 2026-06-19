@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.300";
+const VERSION: &str = "0.0.310";
 //
+// 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
 // 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
 //                   ComeData removed because it was simply wrong, since Come always has no data
 // 18Jun2026 0.0.210 New heading above (2)
@@ -65,7 +66,9 @@ type ExchangedDataT = u32;
 const DATA_FIRST_AND_INC: ExchangedDataT = 1; 
 
 // #[derive(Default)] automatically creates an init function under the hood that sets all u32 fields to 0
-#[derive(Default, Debug, Clone, Copy)]
+use std::time::Instant; // Put this with the other imports at the top of src/main.rs
+
+#[derive(Debug, Clone, Copy)] // Removed Default from here!
 struct Cnts {
     pub sent_cnt: u32,
     pub rec_cnt: u32,
@@ -75,21 +78,28 @@ struct Cnts {
     pub rec_lt_sent_cnt: u32,
     pub sum_sent_cnt: u32,
     pub sum_rec_cnt: u32,
+    pub last_print_time: Instant, // Stores the timestamp of the last printout
 }
 
-fn update_fairness_cnts(cnts: &mut Cnts) {
-    if cnts.rec_cnt > cnts.sent_cnt {
-        cnts.rec_gt_sent_cnt += 1;
-    } else if cnts.rec_cnt < cnts.sent_cnt {
-        cnts.rec_lt_sent_cnt += 1;
-    } else {
-        cnts.rec_eq_sent_cnt += 1;
+// This manual block is now the ONLY initialization rule for Cnts
+impl Default for Cnts {
+    fn default() -> Self {
+        Self {
+            sent_cnt: 0,
+            rec_cnt: 0,
+            rec_sent_cnt: 0,
+            rec_gt_sent_cnt: 0,
+            rec_eq_sent_cnt: 0,
+            rec_lt_sent_cnt: 0,
+            sum_sent_cnt: 0,
+            sum_rec_cnt: 0,
+            last_print_time: Instant::now(), // Now this field physically exists!
+        }
     }
 }
 
+
 fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
-    // Corrected to evaluate the actual relationship between values, 
-    // making it consistent with the cumulative sum logic.
     let current_sign = if cnts.rec_cnt > cnts.sent_cnt {
         ">"
     } else if cnts.rec_cnt < cnts.sent_cnt {
@@ -98,7 +108,6 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
         "="
     };
 
-    // Determine the direction sign for cumulative totals (matches your XC logic)
     let sum_sign = if cnts.sum_rec_cnt > cnts.sum_sent_cnt {
         ">"
     } else if cnts.sum_rec_cnt < cnts.sum_sent_cnt {
@@ -107,11 +116,15 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
         "="
     };
 
-    // Prints the metrics with clean alignment using tab separators
+    // Calculate delta seconds since the last printout
+    let now = Instant::now();
+    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
+
+    // Prints the metrics with delta seconds appended to the start or end of the log
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {})",
+            "REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {})\tDT {:.2}s",
             cnts.rec_cnt,
             current_sign,
             cnts.sent_cnt,
@@ -120,18 +133,21 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
             cnts.rec_lt_sent_cnt,
             cnts.sum_rec_cnt,
             sum_sign,
-            cnts.sum_sent_cnt
+            cnts.sum_sent_cnt,
+            delta_secs // Injected into the printout
         ),
     );
 
-    // Clear interval counters matching your XC behavior exactly
+    // Reset interval counters and update the time benchmark for the next 50-tick
     cnts.sent_cnt = 0;
     cnts.rec_cnt = 0;
     cnts.rec_sent_cnt = 0;
     cnts.rec_gt_sent_cnt = 0;
     cnts.rec_eq_sent_cnt = 0;
     cnts.rec_lt_sent_cnt = 0;
+    cnts.last_print_time = now; // Reset timer benchmark
 }
+
 
 #[derive(Clone, Debug, PartialEq)]
 enum Message {
@@ -279,6 +295,15 @@ async fn task_a_slave(
     }
 }
 
+fn update_fairness_cnts(cnts: &mut Cnts) {
+    if cnts.rec_cnt > cnts.sent_cnt {
+        cnts.rec_gt_sent_cnt += 1;
+    } else if cnts.rec_cnt < cnts.sent_cnt {
+        cnts.rec_lt_sent_cnt += 1;
+    } else {
+        cnts.rec_eq_sent_cnt += 1;
+    }
+}
 
 // Equivalent to task_b_master in XC
 async fn task_b_master(
@@ -290,6 +315,8 @@ async fn task_b_master(
     let mut data_from_task_a_slave: ExchangedDataT =   0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut my_cnts = Cnts::default(); 
     let mut state = KnockComeState::MasterGotDataNowReady;
+
+    print_and_clear_debug_cnts(&mut my_cnts);
 
     loop {
         let random_millis = {
