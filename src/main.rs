@@ -8,9 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.311";
+const VERSION: &str = "0.0.312";
 //
-// 19Jun2026 0.0.311 Layout
+// 20Jun2026 0.0.312 Name of channels changed, and some variables
 // 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
 // 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
 //                   ComeData removed because it was simply wrong, since Come always has no data
@@ -244,9 +244,9 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
 
 // Equivalent to task_a_slave in XC
 async fn task_a_slave(
-    ch_ab_knock_tx: flume::Sender<()>, 
-    ch_ab_bidir_rx: flume::Receiver<Message>, 
-    ch_ab_bidir_tx: flume::Sender<Message>,
+    ch_ab_knock:        flume::Sender<()>, 
+    ch_ba_come_or_data: flume::Receiver<Message>, 
+    ch_ab_data:         flume::Sender<Message>,
 ) {    
     let mut state = KnockComeState::SlaveSentDataNowReady;
     let mut data_from_task_a_slave: ExchangedDataT = DATA_FIRST_AND_INC; 
@@ -264,8 +264,8 @@ async fn task_a_slave(
             biased;
 
             // CASE 1: Receive from master (Always active)
-            msg_res = ch_ab_bidir_rx.recv_async() => {
-                if let Ok(msg) = msg_res {
+            spontaneous_data_or_come = ch_ba_come_or_data.recv_async() => {
+                if let Ok(msg) = spontaneous_data_or_come {
                     match msg {
                         Message::SpontaneousData { val } => {
                             // CORRECTED: Verify sequence only for actual spontaneous data stream
@@ -281,8 +281,8 @@ async fn task_a_slave(
                         }
                         Message::Come => {
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);                           
-                            let reply = Message::SlaveData { val: data_from_task_a_slave };
-                            let _ = ch_ab_bidir_tx.send_async(reply).await;         
+                            let after_knock_come_the_data = Message::SlaveData { val: data_from_task_a_slave };
+                            let _ = ch_ab_data.send_async(after_knock_come_the_data).await;         
                             println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_task_a_slave));                 
                             data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
@@ -296,7 +296,7 @@ async fn task_a_slave(
 
             // CASE 2: Local Timer
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
-                let _ = ch_ab_knock_tx.send_async(()).await; 
+                let _ = ch_ab_knock.send_async(()).await; 
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
@@ -306,9 +306,9 @@ async fn task_a_slave(
 
 // Equivalent to task_b_master in XC
 async fn task_b_master(
-    ch_ab_knock_rx: flume::Receiver<()>, 
-    ch_ab_bidir_tx: flume::Sender<Message>, 
-    ch_ab_bidir_rx: flume::Receiver<Message>, 
+    ch_ab_knock_rx:     flume::Receiver<()>, 
+    ch_ab_data:         flume::Sender<Message>, 
+    ch_ba_come_or_data: flume::Receiver<Message>, 
 ) {
     let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC; 
     let mut data_from_task_a_slave: ExchangedDataT =   0; // So that the first received is DATA_FIRST_AND_INC more 
@@ -343,15 +343,15 @@ async fn task_b_master(
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
                     
                     // Transmit the clean COME signal to the slave without any payload
-                    let _ = ch_ab_bidir_tx.send_async(Message::Come).await;
+                    let _ = ch_ab_data.send_async(Message::Come).await;
 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
                     // Receive the synchronous reply from the slave
-                    let received_res = ch_ab_bidir_rx.recv_async().await;
+                    let after_knock_come_the_data = ch_ba_come_or_data.recv_async().await;
 
                     // Verify packet type and payload (matches xassert logic in XC)
-                    match received_res {
+                    match after_knock_come_the_data {
                         Ok(Message::SlaveData { val }) => {
                             // Verify that incoming slave data matches history + incremental step
                             assert_eq!(
@@ -388,9 +388,9 @@ async fn task_b_master(
             // CASE 2: Local Timer Ticked
             _ = local_timer => {
                 // Create the message with the CURRENT value first
-                let spontaneous_msg = Message::SpontaneousData { val: data_from_task_b_master };
+                let spontaneous_data = Message::SpontaneousData { val: data_from_task_b_master };
                 
-                if let Ok(()) = ch_ab_bidir_tx.try_send(spontaneous_msg) { // Not .send_async().await here, even if slave alwasy is ready
+                if let Ok(()) = ch_ab_data.try_send(spontaneous_data) { // Not .send_async().await here, even if slave alwasy is ready
                     println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));                    
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
                     data_from_task_b_master += DATA_FIRST_AND_INC;
@@ -423,18 +423,18 @@ const CHAN_SYNCH_CAP_0:     usize = 0;
 
 #[tokio::main]
 async fn main() {
-    let (ch_ab_knock_tx, ch_ab_knock_rx) = flume::bounded::<()>(CHAN_STREAMING_CAP_1);
-    let (master_to_slave_tx, master_to_slave_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
-    let (slave_to_master_tx, slave_to_master_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
+    let (slave_to_master_knock_tx, slave_to_master_knock_rx) = flume::bounded::<()>     (CHAN_STREAMING_CAP_1);
+    let (master_to_slave_tx,  master_to_slave_rx)  = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
+    let (slave_to_master_tx,  slave_to_master_rx)  = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
 
     let task_a_slave_handle = tokio::spawn(task_a_slave(
-        ch_ab_knock_tx, 
+        slave_to_master_knock_tx, 
         master_to_slave_rx, 
         slave_to_master_tx
     ));
     
     let task_b_master_handle = tokio::spawn(task_b_master(
-        ch_ab_knock_rx, 
+        slave_to_master_knock_rx,
         master_to_slave_tx, 
         slave_to_master_rx
     ));
