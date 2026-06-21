@@ -3,14 +3,14 @@
 // Øyvind Teig, Trondheim, Norway
 //     This was "my" first Rust code. Thanks to pair programming with Google AI!
 // Blog note:
-//https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
+// https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
 // GitHub:
-//https://github.com/Aclassifier/rust_test_knock_come
+// https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
 const VERSION: &str = "0.0.900";
 //
-// 21Jun2026 0.0.900 Testing clickable URLs (2) as starting with //https:..
+// 21Jun2026 0.0.900 Testing clickable URLs (3) as starting with // https:..
 // 21Jun2026 0.0.900 print_welcome_banner like in XC. Using chrono. Plus some comments on the
 //                   "catch" part of try_send in task_b_master
 // 21Jun2026 0.0.320 avoid_deadlock_cnt is new. Typically between 1 and 18 (obs random timeouts)
@@ -448,7 +448,7 @@ async fn task_b_master(
                     // deadlock, allowing task_b_master to process the pending KNOCK on the next loop.
 
                     // See
-                    //https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/#fractally_reappearing_problem
+                    // https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/#fractally_reappearing_problem
                     // We could have done let sleep(Duration::0)); above be zero here, and the "busy poll send" could have used "newer" data.
                 }
 
