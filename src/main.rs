@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.312";
+const VERSION: &str = "0.0.320";
 //
+// 21Jun2026 0.0.320 avoid_deadlock_cnt is new. Typically between 1 and 18 (obs random timeouts)
 // 20Jun2026 0.0.312 Name of channels changed, and some variables
 // 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
 // 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
@@ -59,9 +60,9 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
 // CODE PROPER
 // =============================================================================================
 
-const RANDOM_VAL_MIN_MS:  u64 =    0; 
-const RANDOM_VAL_MAX_MS:  u64 =  100; 
-const MAX_SUM_CNT:        u32 = 1000;
+const RANDOM_VAL_MIN_MS: u64 =    0; 
+const RANDOM_VAL_MAX_MS: u64 =  100; 
+const MAX_SUM_CNT:       u32 = 1000;
 
 type ExchangedDataT = u32;
 const DATA_FIRST_AND_INC: ExchangedDataT = 1; 
@@ -79,6 +80,7 @@ struct Cnts {
     pub rec_lt_sent_cnt: u32,
     pub sum_sent_cnt: u32,
     pub sum_rec_cnt: u32,
+    pub avoid_deadlock_cnt: u32,
     pub last_print_time: Instant, // Stores the timestamp of the last printout
 }
 
@@ -94,6 +96,7 @@ impl Default for Cnts {
             rec_lt_sent_cnt: 0,
             sum_sent_cnt: 0,
             sum_rec_cnt: 0,
+            avoid_deadlock_cnt: 0,
             last_print_time: Instant::now(), // Now this field physically exists!
         }
     }
@@ -117,6 +120,12 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
         "="
     };
 
+    let catch_uppercase: &str = if cnts.avoid_deadlock_cnt > 0 {
+        "CATCH"
+    } else {
+        "catch"
+    };
+
     // Calculate delta seconds since the last printout
     let now = Instant::now();
     let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
@@ -125,7 +134,7 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {})\tDT {:.2}s",
+            "REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {}) {} {}\tDT {:.2}s",
             cnts.rec_cnt,
             current_sign,
             cnts.sent_cnt,
@@ -135,6 +144,8 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
             cnts.sum_rec_cnt,
             sum_sign,
             cnts.sum_sent_cnt,
+            catch_uppercase,
+            cnts.avoid_deadlock_cnt,
             delta_secs // Injected into the printout
         ),
     );
@@ -146,6 +157,7 @@ fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
     cnts.rec_gt_sent_cnt = 0;
     cnts.rec_eq_sent_cnt = 0;
     cnts.rec_lt_sent_cnt = 0;
+    cnts.avoid_deadlock_cnt = 0; // Also zeroing this, same rule as the others
     cnts.last_print_time = now; // Reset timer benchmark
 }
 
@@ -281,8 +293,8 @@ async fn task_a_slave(
                         }
                         Message::Come => {
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);                           
-                            let after_knock_come_the_data = Message::SlaveData { val: data_from_task_a_slave };
-                            let _ = ch_ab_data.send_async(after_knock_come_the_data).await;         
+                            let after_knock_come_the_data = Message::SlaveData { val: data_from_task_a_slave }; // .try_send not needed here
+                            let _ = ch_ab_data.send_async(after_knock_come_the_data).await; // .try_send not needed here        
                             println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_task_a_slave));                 
                             data_from_task_a_slave += DATA_FIRST_AND_INC; 
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
@@ -296,7 +308,7 @@ async fn task_a_slave(
 
             // CASE 2: Local Timer
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
-                let _ = ch_ab_knock.send_async(()).await; 
+                let _ = ch_ab_knock.send_async(()).await; // .try_send not needed here
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
@@ -312,10 +324,10 @@ async fn task_b_master(
 ) {
     let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC; 
     let mut data_from_task_a_slave: ExchangedDataT =   0; // So that the first received is DATA_FIRST_AND_INC more 
-    let mut my_cnts = Cnts::default(); 
+    let mut cnts = Cnts::default(); 
     let mut state = KnockComeState::MasterGotDataNowReady;
 
-    print_and_clear_debug_cnts(&mut my_cnts);
+    print_and_clear_debug_cnts(&mut cnts);
 
     loop {
         let random_millis = {
@@ -343,7 +355,7 @@ async fn task_b_master(
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
                     
                     // Transmit the clean COME signal to the slave without any payload
-                    let _ = ch_ab_data.send_async(Message::Come).await;
+                    let _ = ch_ab_data.send_async(Message::Come).await; // .try_send not needed here
 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
@@ -363,14 +375,14 @@ async fn task_b_master(
                             data_from_task_a_slave = val;
                             println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave));                          
                             // Update statistics tracking (equivalent to XC metrics)
-                            my_cnts.rec_cnt += 1;
-                            my_cnts.rec_sent_cnt += 1;
-                            my_cnts.sum_rec_cnt += 1;                            
+                            cnts.rec_cnt += 1;
+                            cnts.rec_sent_cnt += 1;
+                            cnts.sum_rec_cnt += 1;                            
                             // Calculate and evaluate protocol fairness
                                               // Update fairness metrics and check if it's time to print and reset interval counters
-                            update_fairness_cnts(&mut my_cnts);
-                            if my_cnts.rec_sent_cnt == MAX_SUM_CNT {
-                                print_and_clear_debug_cnts(&mut my_cnts);
+                            update_fairness_cnts(&mut cnts);
+                            if cnts.rec_sent_cnt == MAX_SUM_CNT {
+                                print_and_clear_debug_cnts(&mut cnts);
                             } else { }
                         }
                         _ => {
@@ -390,20 +402,21 @@ async fn task_b_master(
                 // Create the message with the CURRENT value first
                 let spontaneous_data = Message::SpontaneousData { val: data_from_task_b_master };
                 
-                if let Ok(()) = ch_ab_data.try_send(spontaneous_data) { // Not .send_async().await here, even if slave alwasy is ready
+                if let Ok(()) = ch_ab_data.try_send(spontaneous_data) { // Not .send_async().await here, to avoid deadlock, even if slave alwaays is ready
                     println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));                    
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
                     data_from_task_b_master += DATA_FIRST_AND_INC;
                     
                     // Update statistics tracking
-                    my_cnts.sent_cnt += 1;
-                    my_cnts.rec_sent_cnt += 1;
-                    my_cnts.sum_sent_cnt += 1;
-                    update_fairness_cnts(&mut my_cnts);
-                    if my_cnts.rec_sent_cnt == MAX_SUM_CNT {
-                        print_and_clear_debug_cnts(&mut my_cnts);
+                    cnts.sent_cnt += 1;
+                    cnts.rec_sent_cnt += 1;
+                    cnts.sum_sent_cnt += 1;
+                    update_fairness_cnts(&mut cnts);
+                    if cnts.rec_sent_cnt == MAX_SUM_CNT {
+                        print_and_clear_debug_cnts(&mut cnts);
                     } else { }
                 } else {
+                    cnts.avoid_deadlock_cnt += 1; 
                     // try_send here is the only way to protect against tokio scheduler delays, since it only sees a queue, not a time.
                     // In software simulation, if a simultaneous timeout occurs in task_a_slave
                     // it might be transitioning between loop iterations and 
