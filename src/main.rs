@@ -11,7 +11,7 @@
 const VERSION: &str = "0.0.900";
 //
 // 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
-//                   Solution: GitHub allowes clickable urls only in README.md, not in code,
+//                   Solution: GitHub allows clickable urls only in README.md, not in code,
 //                   but they are clickable in VS Code
 // 21Jun2026 0.0.900 print_welcome_banner like in XC. Using chrono. Plus some comments on the
 //                   "catch" part of try_send in task_b_master
