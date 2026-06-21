@@ -8,8 +8,10 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.320";
+const VERSION: &str = "0.0.900";
 //
+// 21Jun2026 0.0.900 print_welcome_banner like in XC. Using chrono. Plus some comments on the
+//                   "catch" part of try_send in task_b_master
 // 21Jun2026 0.0.320 avoid_deadlock_cnt is new. Typically between 1 and 18 (obs random timeouts)
 // 20Jun2026 0.0.312 Name of channels changed, and some variables
 // 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
@@ -102,6 +104,24 @@ impl Default for Cnts {
     }
 }
 
+fn print_welcome_banner() {
+    // Fetches the current local time from your iMac during startup
+    let local_time = chrono::Local::now();
+    
+    // Formats the date to exactly match your XC style (e.g., 21Jun2026)
+    let compile_date = local_time.format("%d%b%Y").to_string();
+    let compile_time = local_time.format("%H:%M").to_string();
+
+    println!(
+        "Rust KNOCK-COME v{} on date {} {}\n\
+         Time random max {} ms, cnt events at {} (Teig)\n",
+        VERSION,
+        compile_date,
+        compile_time,
+        RANDOM_VAL_MAX_MS,
+        MAX_SUM_CNT
+    );
+}
 
 fn print_and_clear_debug_cnts(cnts: &mut Cnts) {
     let current_sign = if cnts.rec_cnt > cnts.sent_cnt {
@@ -322,6 +342,8 @@ async fn task_b_master(
     ch_ab_data:         flume::Sender<Message>, 
     ch_ba_come_or_data: flume::Receiver<Message>, 
 ) {
+    print_welcome_banner(); // Always
+
     let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC; 
     let mut data_from_task_a_slave: ExchangedDataT =   0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut cnts = Cnts::default(); 
@@ -423,6 +445,9 @@ async fn task_b_master(
                     // not actively polling the rendezvous channel at this exact microsecond.
                     // We discard the spontaneous data atomically to avoid a software-induced 
                     // deadlock, allowing task_b_master to process the pending KNOCK on the next loop.
+
+                    // See https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/#fractally_reappearing_problem
+                    // We could have done let sleep(Duration::0)); above be zero here, and the "busy poll send" could have used "newer" data.
                 }
 
             }
@@ -452,7 +477,7 @@ async fn main() {
         slave_to_master_rx
     ));
 
-    println!("\nKnock-come running v{}. Tasks started in a PAR-equivalent block\n", VERSION);
+    println!("\ntask_a_slave_handle and task_b_master_handle running in parallel forever\n");
 
     let _ = tokio::join!(task_a_slave_handle, task_b_master_handle);
 }
