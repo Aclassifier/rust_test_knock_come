@@ -10,6 +10,7 @@
 //
 const VERSION: &str = "0.0.900";
 //
+// 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
 // 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
 //                   Solution: GitHub allows clickable urls only in README.md, not in code,
 //                   but they are clickable in VS Code
@@ -354,7 +355,8 @@ async fn task_b_master(
 
     print_and_clear_debug_cnts(&mut cnts);
 
-    loop {
+    loop 
+    {
         let random_millis = {
             let mut rng = rand::rng();
             rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS) 
@@ -370,11 +372,13 @@ async fn task_b_master(
         // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
         // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers.
 
-        tokio::select! {
+        tokio::select! 
+        {
             biased;
 
             // CASE 1: Receive Knock from Slave
-            knock_res = ch_ab_knock_rx.recv_async() => {
+            knock_res = ch_ab_knock_rx.recv_async() => 
+            {
                 if let Ok(()) = knock_res {
                     println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
@@ -423,7 +427,8 @@ async fn task_b_master(
             }
 
             // CASE 2: Local Timer Ticked
-            _ = local_timer => {
+            _ = local_timer => 
+            {
                 // Create the message with the CURRENT value first
                 let spontaneous_data = Message::SpontaneousData { val: data_from_task_b_master };
                 
@@ -452,12 +457,10 @@ async fn task_b_master(
                     // See https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/#fractally_reappearing_problem
                     // We could have done let sleep(Duration::0)); above be zero here, and the "busy poll send" could have used "newer" data.
                 }
-
             }
         }
     }
 }
-
 
 const CHAN_STREAMING_CAP_1: usize = 1;
 const CHAN_SYNCH_CAP_0:     usize = 0; 
