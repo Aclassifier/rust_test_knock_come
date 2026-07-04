@@ -10,6 +10,7 @@
 //
 const VERSION: &str = "0.0.900";
 //
+// 04Jul2026 0.0.900 Same version but file knock_come_redraw.rs added as a copy-from file
 // 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
 // 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
 //                   Solution: GitHub allows clickable urls only in README.md, not in code,
@@ -408,7 +409,7 @@ async fn task_b_master(
                             cnts.rec_sent_cnt += 1;
                             cnts.sum_rec_cnt += 1;                            
                             // Calculate and evaluate protocol fairness
-                                              // Update fairness metrics and check if it's time to print and reset interval counters
+                            // Update fairness metrics and check if it's time to print and reset interval counters
                             update_fairness_cnts(&mut cnts);
                             if cnts.rec_sent_cnt == MAX_SUM_CNT {
                                 print_and_clear_debug_cnts(&mut cnts);

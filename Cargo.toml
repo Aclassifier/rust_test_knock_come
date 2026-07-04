@@ -2,6 +2,7 @@
 name = "rust_test_knock_come"
 version = "0.1.0"
 edition = "2024"
+default-run = "rust_test_knock_come" 
 
 [dependencies]
 flume = { version = "0.12.0", features = ["async", "select"] }
