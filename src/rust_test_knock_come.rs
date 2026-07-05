@@ -10,6 +10,7 @@
 //
 const VERSION: &str = "0.0.904";
 //
+// 05Jul2026 0.0.904 "/// comments used above tasks
 // 05Jul2026 0.0.904 Names of chans in main
 // 05Jul2026 0.0.903 Lots of new names! Approaching USE_NESTED_SELECT 1 usage
 // 05Jul2026 0.0.902 "Format on save" in VS Code set. Some new comments
@@ -20,7 +21,7 @@ const VERSION: &str = "0.0.904";
 // 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
 //                   Solution: GitHub allows clickable urls only in README.md, not in code,
 //                   but they are clickable in VS Code
-// 21Jun2026 0.0.900 print_welcomenner like in XC. Using chrono. Plus some comments on the
+// 21Jun2026 0.0.900 print_welcome like in XC. Using chrono. Plus some comments on the
 //                   "catch" part of try_send in task_b_master
 // 21Jun2026 0.0.320 avoid_deadlock_cnt is new. Typically between 1 and 18 (obs random timeouts)
 // 20Jun2026 0.0.312 Name of channels changed, and some variables
@@ -133,7 +134,7 @@ impl Default for Cnts {
     }
 }
 
-fn print_welcomenner() {
+fn print_welcome() {
     // Fetches the current local time from your iMac during startup
     let local_time = chrono::Local::now();
 
@@ -314,13 +315,20 @@ fn master_set_knock_come_state(
     new_state
 }
 
-// =============================================================================================
-// CODE FOR USE_NESTED_SELECT == 0
-// task_slave
-// task_master_try_send
-// =============================================================================================
-
-// Equivalent to task_slave in XC
+/// CODE FOR USE_NESTED_SELECT == 0
+/// Implements the slave task in the Knock-Come pattern.
+///
+/// This task manages randomized timeouts and coordinates the rendezvous-style
+/// message exchange with the master task.
+///
+/// The timer as a case in the tokio:select gives rise to a deadlock with task_master_try_send
+/// for the version without the trys_send. With send_async instead, the deadlock appears immediately.
+///
+/// # Channels
+/// * `ch_knock_tx` - Transmits the asynchronous "knock" signal to initiate a transaction.
+/// * `ch_come_or_sdata_rx` - Receives either a "come" authorization or spontaneous data from the master.
+/// * `ch_come_tx` - Sends the actual payload data back to the master following an approved "come".
+///
 async fn task_slave(
     ch_knock_tx: flume::Sender<()>,
     ch_come_or_sdata_rx: flume::Receiver<Message>,
@@ -382,13 +390,29 @@ async fn task_slave(
     }
 }
 
-// With try_send it's not equal to the XC equivalent
+/// CODE FOR USE_NESTED_SELECT == 0
+/// Implements the master task in the Knock-Come pattern using a non-blocking try-send approach.
+///
+/// This task listens for incoming transaction requests from the slave and handles
+/// spontaneous data transmission when its own timeouts expire.
+///
+/// The try_send is needed to avoid a deadlock that may occur with task_slave since the lower level of
+/// the single tokio:select in task_slave are some times not uniquely defined when one component is a timeout.
+/// This gives rise to the "fractally reappering problem" as described in
+/// https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/#fractally_reappearing_problem
+/// This is solved with task_slave_nested_select and task_b_master_send
+///
+/// # Channels
+/// * `ch_knock_rx` - Receives the asynchronous "knock" signal from the slave initiating a transaction.
+/// * `ch_come_or_sdata_tx` - Transmits either a "come" authorization response or spontaneous data to the slave.
+/// * `ch_come_rx` - Receives the actual payload data from the slave after the rendezvous is established.
+///
 async fn task_master_try_send(
     ch_knock_rx: flume::Receiver<()>,
     ch_come_or_sdata_tx: flume::Sender<Message>,
     ch_come_rx: flume::Receiver<Message>,
 ) {
-    print_welcomenner(); // Always
+    print_welcome(); // Always
 
     let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
@@ -504,7 +528,7 @@ async fn task_master_try_send(
 
 // =============================================================================================
 // CODE FOR USE_NESTED_SELECT == 1
-// task_slave_nested_select
+// task_slave_nested_select <--
 // task_b_master_send
 // =============================================================================================
 //
@@ -514,6 +538,8 @@ async fn task_slave_nested_select(
     ch_come_or_sdata_rx: flume::Receiver<Message>,
     ch_come_tx: flume::Sender<Message>,
 ) {
+    // TODO: THE BODY IN THIS CODE WILL BE REPLACED WITH A PROPER VERSION
+
     let mut state = KnockComeState::SlaveSentDataNowReady;
     let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_master: ExchangedDataT = 0; // History variable for SpontaneousData
@@ -569,6 +595,11 @@ async fn task_slave_nested_select(
         }
     }
 }
+// =============================================================================================
+// CODE FOR USE_NESTED_SELECT == 1
+// task_slave_nested_select
+// task_b_master_send <--
+// =============================================================================================
 
 // With send it's closer to the code in XC
 async fn task_b_master_send(
@@ -576,7 +607,9 @@ async fn task_b_master_send(
     ch_come_or_sdata_tx: flume::Sender<Message>,
     ch_come_rx: flume::Receiver<Message>,
 ) {
-    print_welcomenner(); // Always
+    // TODO: THE BODY IN THIS CODE WILL BE REPLACED WITH A PROPER VERSION
+
+    print_welcome(); // Always
 
     let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
