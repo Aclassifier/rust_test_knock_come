@@ -9,3 +9,7 @@ flume = { version = "0.12.0", features = ["async", "select"] }
 tokio = { version = "1.52.3", features = ["full"] }
 rand = "0.9"
 chrono = "0.4"
+
+[[bin]]
+name = "rust_test_knock_come"
+path = "src/rust_test_knock_come.rs"

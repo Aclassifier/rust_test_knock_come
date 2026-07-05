@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.901";
+const VERSION: &str = "0.0.902";
 //
+// 05Jul2026 0.0.902 Main file main.rs -> rust_test_knock_come with main function inside (see Cargo.toml)
 // 05Jul2026 0.0.901 Added USE_NESTET_SELECT, but 0 or 1 equal for this version
 // 04Jul2026 0.0.900 Same version but file knock_come_redraw.rs added as a copy-from file
 // 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
