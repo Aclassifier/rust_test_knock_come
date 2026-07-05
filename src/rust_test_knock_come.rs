@@ -8,17 +8,18 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.902";
+const VERSION: &str = "0.0.903";
 //
+// 05Jul2026 0.0.903 Lots of new names! Approaching USE_NESTED_SELECT 1 usage
 // 05Jul2026 0.0.902 "Format on save" in VS Code set. Some new comments
 // 05Jul2026 0.0.902 Main file main.rs -> rust_test_knock_come with main function inside (see Cargo.toml)
-// 05Jul2026 0.0.901 Added USE_NESTET_SELECT, but 0 or 1 equal for this version
+// 05Jul2026 0.0.901 Added USE_NESTED_SELECT, but 0 or 1 equal for this version
 // 04Jul2026 0.0.900 Same version but file knock_come_redraw.rs added as a copy-from file
 // 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
 // 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
 //                   Solution: GitHub allows clickable urls only in README.md, not in code,
 //                   but they are clickable in VS Code
-// 21Jun2026 0.0.900 print_welcome_banner like in XC. Using chrono. Plus some comments on the
+// 21Jun2026 0.0.900 print_welcomenner like in XC. Using chrono. Plus some comments on the
 //                   "catch" part of try_send in task_b_master
 // 21Jun2026 0.0.320 avoid_deadlock_cnt is new. Typically between 1 and 18 (obs random timeouts)
 // 20Jun2026 0.0.312 Name of channels changed, and some variables
@@ -72,7 +73,7 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
 // CODE PROPER
 // =============================================================================================
 
-const USE_NESTET_SELECT: u32 = 0; // 0 or 1 equal for 0.0.901
+const USE_NESTED_SELECT: u32 = 0; // 0 or 1 equal for 0.0.901
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 100;
 const MAX_SUM_CNT: u32 = 1000;
@@ -131,7 +132,7 @@ impl Default for Cnts {
     }
 }
 
-fn print_welcome_banner() {
+fn print_welcomenner() {
     // Fetches the current local time from your iMac during startup
     let local_time = chrono::Local::now();
 
@@ -313,20 +314,20 @@ fn master_set_knock_come_state(
 }
 
 // =============================================================================================
-// CODE FOR USE_NESTET_SELECT == 0
-// task_a_slave
-// task_b_master_try_send
+// CODE FOR USE_NESTED_SELECT == 0
+// task_slave
+// task_master_try_send
 // =============================================================================================
 
-// Equivalent to task_a_slave in XC
-async fn task_a_slave(
-    ch_ab_knock: flume::Sender<()>,
-    ch_ba_come_or_data: flume::Receiver<Message>,
-    ch_ab_data: flume::Sender<Message>,
+// Equivalent to task_slave in XC
+async fn task_slave(
+    ch_knock_tx: flume::Sender<()>,
+    ch_come_or_data_rx: flume::Receiver<Message>,
+    ch_data_tx: flume::Sender<Message>,
 ) {
     let mut state = KnockComeState::SlaveSentDataNowReady;
-    let mut data_from_task_a_slave: ExchangedDataT = DATA_FIRST_AND_INC;
-    let mut data_from_task_b_master: ExchangedDataT = 0; // History variable for SpontaneousData
+    let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
+    let mut data_from_master: ExchangedDataT = 0; // History variable for SpontaneousData
 
     loop {
         let random_millis: u64 = {
@@ -340,27 +341,27 @@ async fn task_a_slave(
             biased;
 
             // CASE 1: Receive from master (Always active)
-            spontaneous_data_or_come = ch_ba_come_or_data.recv_async() => {
+            spontaneous_data_or_come = ch_come_or_data_rx.recv_async() => {
                 if let Ok(msg) = spontaneous_data_or_come {
                     match msg {
                         Message::SpontaneousData { val } => {
                             // CORRECTED: Verify sequence only for actual spontaneous data stream
                             assert_eq!(
                                 val,
-                                data_from_task_b_master + DATA_FIRST_AND_INC,
+                                data_from_master + DATA_FIRST_AND_INC,
                                 "[Slave] Data sequence gap detected in SpontaneousData!"
                             );
 
                             // Update history tracking for spontaneous data
-                            data_from_task_b_master = val;
-                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_task_b_master));
+                            data_from_master = val;
+                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
                         }
                         Message::Come => {
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
-                            let after_knock_come_the_data = Message::SlaveData { val: data_from_task_a_slave }; // .try_send not needed here
-                            let _ = ch_ab_data.send_async(after_knock_come_the_data).await; // .try_send not needed here
-                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_task_a_slave));
-                            data_from_task_a_slave += DATA_FIRST_AND_INC;
+                            let after_knock_come_the_data = Message::SlaveData { val: data_from_slave }; // .try_send not needed here
+                            let _ = ch_data_tx.send_async(after_knock_come_the_data).await; // .try_send not needed here
+                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_slave));
+                            data_from_slave += DATA_FIRST_AND_INC;
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
                         _ => panic!("[Slave] Unexpected packet type received!"),
@@ -372,7 +373,7 @@ async fn task_a_slave(
 
             // CASE 2: Local Timer
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
-                let _ = ch_ab_knock.send_async(()).await; // .try_send not needed here
+                let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
@@ -381,15 +382,15 @@ async fn task_a_slave(
 }
 
 // With try_send it's not equal to the XC equivalent
-async fn task_b_master_try_send(
-    ch_ab_knock_rx: flume::Receiver<()>,
-    ch_ab_data: flume::Sender<Message>,
-    ch_ba_come_or_data: flume::Receiver<Message>,
+async fn task_master_try_send(
+    ch_knock_rx: flume::Receiver<()>,
+    ch_data_tx: flume::Sender<Message>,
+    ch_come_or_data_rx: flume::Receiver<Message>,
 ) {
-    print_welcome_banner(); // Always
+    print_welcomenner(); // Always
 
-    let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC;
-    let mut data_from_task_a_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
+    let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
+    let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut cnts = Cnts::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
@@ -415,19 +416,19 @@ async fn task_b_master_try_send(
             biased;
 
             // CASE 1: Receive Knock from Slave
-            knock_res = ch_ab_knock_rx.recv_async() =>
+            knock_res = ch_knock_rx.recv_async() =>
             {
                 if let Ok(()) = knock_res {
                     println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
 
                     // Transmit the clean COME signal to the slave without any payload
-                    let _ = ch_ab_data.send_async(Message::Come).await; // .try_send not needed here
+                    let _ = ch_data_tx.send_async(Message::Come).await; // .try_send not needed here
 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
                     // Receive the synchronous reply from the slave
-                    let after_knock_come_the_data = ch_ba_come_or_data.recv_async().await;
+                    let after_knock_come_the_data = ch_come_or_data_rx.recv_async().await;
 
                     // Verify packet type and payload (matches xassert logic in XC)
                     match after_knock_come_the_data {
@@ -435,12 +436,12 @@ async fn task_b_master_try_send(
                             // Verify that incoming slave data matches history + incremental step
                             assert_eq!(
                                 val,
-                                data_from_task_a_slave + DATA_FIRST_AND_INC,
+                                data_from_slave + DATA_FIRST_AND_INC,
                                 "[Master] Data sequence gap detected in SlaveData!"
                             );
                             // Update history tracking for slave data
-                            data_from_task_a_slave = val;
-                            println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave));
+                            data_from_slave = val;
+                            println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_slave));
                             // Update statistics tracking (equivalent to XC metrics)
                             cnts.rec_cnt += 1;
                             cnts.rec_sent_cnt += 1;
@@ -468,12 +469,12 @@ async fn task_b_master_try_send(
             _ = local_timer =>
             {
                 // Create the message with the CURRENT value first
-                let spontaneous_data = Message::SpontaneousData { val: data_from_task_b_master };
+                let spontaneous_data = Message::SpontaneousData { val: data_from_master };
 
-                if let Ok(()) = ch_ab_data.try_send(spontaneous_data) { // Not .send_async().await here, to avoid deadlock, even if slave alwaays is ready
-                    println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));
+                if let Ok(()) = ch_data_tx.try_send(spontaneous_data) { // Not .send_async().await here, to avoid deadlock, even if slave alwaays is ready
+                    println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_master));
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
-                    data_from_task_b_master += DATA_FIRST_AND_INC;
+                    data_from_master += DATA_FIRST_AND_INC;
 
                     // Update statistics tracking
                     cnts.sent_cnt += 1;
@@ -486,7 +487,7 @@ async fn task_b_master_try_send(
                 } else {
                     cnts.avoid_deadlock_cnt += 1;
                     // try_send here is the only way to protect against tokio scheduler delays, since it only sees a queue, not a time.
-                    // In software simulation, if a simultaneous timeout occurs in task_a_slave
+                    // In software simulation, if a simultaneous timeout occurs in task_slave
                     // it might be transitioning between loop iterations and
                     // not actively polling the rendezvous channel at this exact microsecond.
                     // We discard the spontaneous data atomically to avoid a software-induced
@@ -501,20 +502,20 @@ async fn task_b_master_try_send(
 }
 
 // =============================================================================================
-// CODE FOR USE_NESTET_SELECT == 1
-// task_a_slave_nested_select
+// CODE FOR USE_NESTED_SELECT == 1
+// task_slave_nested_select
 // task_b_master_send
 // =============================================================================================
 //
-// Not equivalent to task_a_slave in XC
-async fn task_a_slave_nested_select(
-    ch_ab_knock: flume::Sender<()>,
-    ch_ba_come_or_data: flume::Receiver<Message>,
-    ch_ab_data: flume::Sender<Message>,
+// Not equivalent to task_slave in XC
+async fn task_slave_nested_select(
+    ch_knock_tx: flume::Sender<()>,
+    ch_come_or_data_rx: flume::Receiver<Message>,
+    ch_data_tx: flume::Sender<Message>,
 ) {
     let mut state = KnockComeState::SlaveSentDataNowReady;
-    let mut data_from_task_a_slave: ExchangedDataT = DATA_FIRST_AND_INC;
-    let mut data_from_task_b_master: ExchangedDataT = 0; // History variable for SpontaneousData
+    let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
+    let mut data_from_master: ExchangedDataT = 0; // History variable for SpontaneousData
 
     loop {
         let random_millis: u64 = {
@@ -528,27 +529,27 @@ async fn task_a_slave_nested_select(
             biased;
 
             // CASE 1: Receive from master (Always active)
-            spontaneous_data_or_come = ch_ba_come_or_data.recv_async() => {
+            spontaneous_data_or_come = ch_come_or_data_rx.recv_async() => {
                 if let Ok(msg) = spontaneous_data_or_come {
                     match msg {
                         Message::SpontaneousData { val } => {
                             // CORRECTED: Verify sequence only for actual spontaneous data stream
                             assert_eq!(
                                 val,
-                                data_from_task_b_master + DATA_FIRST_AND_INC,
+                                data_from_master + DATA_FIRST_AND_INC,
                                 "[Slave] Data sequence gap detected in SpontaneousData!"
                             );
 
                             // Update history tracking for spontaneous data
-                            data_from_task_b_master = val;
-                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_task_b_master));
+                            data_from_master = val;
+                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
                         }
                         Message::Come => {
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
-                            let after_knock_come_the_data = Message::SlaveData { val: data_from_task_a_slave }; // .try_send not needed here
-                            let _ = ch_ab_data.send_async(after_knock_come_the_data).await; // .try_send not needed here
-                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_task_a_slave));
-                            data_from_task_a_slave += DATA_FIRST_AND_INC;
+                            let after_knock_come_the_data = Message::SlaveData { val: data_from_slave }; // .try_send not needed here
+                            let _ = ch_data_tx.send_async(after_knock_come_the_data).await; // .try_send not needed here
+                            println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_slave));
+                            data_from_slave += DATA_FIRST_AND_INC;
                             state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
                         }
                         _ => panic!("[Slave] Unexpected packet type received!"),
@@ -560,7 +561,7 @@ async fn task_a_slave_nested_select(
 
             // CASE 2: Local Timer
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
-                let _ = ch_ab_knock.send_async(()).await; // .try_send not needed here
+                let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
             }
@@ -570,14 +571,14 @@ async fn task_a_slave_nested_select(
 
 // With send it's closer to the code in XC
 async fn task_b_master_send(
-    ch_ab_knock_rx: flume::Receiver<()>,
-    ch_ab_data: flume::Sender<Message>,
-    ch_ba_come_or_data: flume::Receiver<Message>,
+    ch_knock_rx: flume::Receiver<()>,
+    ch_data_tx: flume::Sender<Message>,
+    ch_come_or_data_rx: flume::Receiver<Message>,
 ) {
-    print_welcome_banner(); // Always
+    print_welcomenner(); // Always
 
-    let mut data_from_task_b_master: ExchangedDataT = DATA_FIRST_AND_INC;
-    let mut data_from_task_a_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
+    let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
+    let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut cnts = Cnts::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
@@ -603,19 +604,19 @@ async fn task_b_master_send(
             biased;
 
             // CASE 1: Receive Knock from Slave
-            knock_res = ch_ab_knock_rx.recv_async() =>
+            knock_res = ch_knock_rx.recv_async() =>
             {
                 if let Ok(()) = knock_res {
                     println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
 
                     // Transmit the clean COME signal to the slave without any payload
-                    let _ = ch_ab_data.send_async(Message::Come).await; // .try_send not needed here
+                    let _ = ch_data_tx.send_async(Message::Come).await; // .try_send not needed here
 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
                     // Receive the synchronous reply from the slave
-                    let after_knock_come_the_data = ch_ba_come_or_data.recv_async().await;
+                    let after_knock_come_the_data = ch_come_or_data_rx.recv_async().await;
 
                     // Verify packet type and payload (matches xassert logic in XC)
                     match after_knock_come_the_data {
@@ -623,12 +624,12 @@ async fn task_b_master_send(
                             // Verify that incoming slave data matches history + incremental step
                             assert_eq!(
                                 val,
-                                data_from_task_a_slave + DATA_FIRST_AND_INC,
+                                data_from_slave + DATA_FIRST_AND_INC,
                                 "[Master] Data sequence gap detected in SlaveData!"
                             );
                             // Update history tracking for slave data
-                            data_from_task_a_slave = val;
-                            println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_task_a_slave));
+                            data_from_slave = val;
+                            println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_slave));
                             // Update statistics tracking (equivalent to XC metrics)
                             cnts.rec_cnt += 1;
                             cnts.rec_sent_cnt += 1;
@@ -656,12 +657,12 @@ async fn task_b_master_send(
             _ = local_timer =>
             {
                 // Create the message with the CURRENT value first
-                let spontaneous_data = Message::SpontaneousData { val: data_from_task_b_master };
+                let spontaneous_data = Message::SpontaneousData { val: data_from_master };
 
-                if let Ok(()) = ch_ab_data.try_send(spontaneous_data) { // Not .send_async().await here, to avoid deadlock, even if slave alwaays is ready
-                    println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_task_b_master));
+                if let Ok(()) = ch_data_tx.try_send(spontaneous_data) { // Not .send_async().await here, to avoid deadlock, even if slave alwaays is ready
+                    println_iff(LogLevel::All, format_args!("[Master] Local timeout tick. Sent spontaneous data: {}", data_from_master));
                     // INCREMENT AFTER SENDING (Matches your protocol requirement)
-                    data_from_task_b_master += DATA_FIRST_AND_INC;
+                    data_from_master += DATA_FIRST_AND_INC;
 
                     // Update statistics tracking
                     cnts.sent_cnt += 1;
@@ -674,7 +675,7 @@ async fn task_b_master_send(
                 } else {
                     cnts.avoid_deadlock_cnt += 1;
                     // try_send here is the only way to protect against tokio scheduler delays, since it only sees a queue, not a time.
-                    // In software simulation, if a simultaneous timeout occurs in task_a_slave
+                    // In software simulation, if a simultaneous timeout occurs in task_slave
                     // it might be transitioning between loop iterations and
                     // not actively polling the rendezvous channel at this exact microsecond.
                     // We discard the spontaneous data atomically to avoid a software-induced
@@ -698,38 +699,38 @@ async fn main() {
     let (master_to_slave_tx, master_to_slave_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
     let (slave_to_master_tx, slave_to_master_rx) = flume::bounded::<Message>(CHAN_SYNCH_CAP_0);
 
-    if USE_NESTET_SELECT == 0 {
-        let task_a_slave_handle = tokio::spawn(task_a_slave(
+    if USE_NESTED_SELECT == 0 {
+        let task_slave_handle = tokio::spawn(task_slave(
             slave_to_master_knock_tx,
             master_to_slave_rx,
             slave_to_master_tx,
         ));
 
-        let task_b_master_handle_try_send = tokio::spawn(task_b_master_try_send(
+        let task_master_handle_try_send = tokio::spawn(task_master_try_send(
             slave_to_master_knock_rx,
             master_to_slave_tx,
             slave_to_master_rx,
         ));
         println!(
-            "\n task_a_slave_handle and ntask_b_master_handle_try_send running in parallel forever\n"
+            "\n task_slave_handle and ntask_master_handle_try_send running in parallel forever\n"
         );
 
-        let _ = tokio::join!(task_a_slave_handle, task_b_master_handle_try_send);
-    } else if USE_NESTET_SELECT == 1 {
-        let task_a_slave_handle_nested_select = tokio::spawn(task_a_slave_nested_select(
+        let _ = tokio::join!(task_slave_handle, task_master_handle_try_send);
+    } else if USE_NESTED_SELECT == 1 {
+        let task_slave_handle_nested_select = tokio::spawn(task_slave_nested_select(
             slave_to_master_knock_tx,
             master_to_slave_rx,
             slave_to_master_tx,
         ));
-        let task_b_master_handle_send = tokio::spawn(task_b_master_send(
+        let task_master_handle_send = tokio::spawn(task_b_master_send(
             slave_to_master_knock_rx,
             master_to_slave_tx,
             slave_to_master_rx,
         ));
         println!(
-            "\ntask_a_slave_handle_nested_select and task_b_master_handle_send running in parallel forever\n"
+            "\ntask_slave_handle_nested_select and task_master_handle_send running in parallel forever\n"
         );
 
-        let _ = tokio::join!(task_a_slave_handle_nested_select, task_b_master_handle_send);
+        let _ = tokio::join!(task_slave_handle_nested_select, task_master_handle_send);
     }
 }
