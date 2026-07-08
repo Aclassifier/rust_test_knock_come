@@ -89,3 +89,15 @@ Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) cat
 Master [32] REC 485     <       SENT 515        (>36= 21 <943)  SUM (REC 2942 < SENT 3058) catch 0      DT 34.65s knocks 2942 comes 2942 datas 2942 spontaneous_datas 3058 + spontaneous_datas_2 0 = 3058
 Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 68.36s knocks 3891 comes 3891 datas 3891 spontaneous_datas 3933 + spontaneous_datas_2 67 = 4000
 Master [32] REC 486     <       SENT 514        (>281= 9 <710)  SUM (REC 3947 < SENT 4053) catch 0      DT 34.22s knocks 3947 comes 3947 datas 3947 spontaneous_datas 4053 + spontaneous_datas_2 0 = 4053
+
+=== Log(4) ===
+ task_slave_handle and ntask_master_handle_try_send running in parallel forever
+
+Rust KNOCK-COME v0.0.906 USE_NESTED_SELECT 0 on 08Jul2026 17:34
+Time random max 100 ms, cnt events at 1000 (Teig)
+
+Master [0] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
+Master [2] REC 975      <       SENT 999        (>63= 8 <1903)  SUM (REC 975 < SENT 999) CATCH 12       DT 68.82s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
+Master [1] REC 25       >       SENT 22 (>7= 14 <26)    SUM (REC 1000 < SENT 1021) catch 0      DT 1.78s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
+Master [1] REC 1000     >       SENT 904        (>1827= 15 <62) SUM (REC 2000 > SENT 1925) CATCH 8      DT 65.39s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
+Master [2] REC 84       >       SENT 74 (>75= 14 <69)   SUM (REC 2084 > SENT 1999) CATCH 2      DT 5.73s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0

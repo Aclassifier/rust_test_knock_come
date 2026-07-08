@@ -8,9 +8,11 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.905";
+const VERSION: &str = "0.0.906";
 //
-// 08Jul2026 0.0.905 USE_NESTED_SELECT 1 seems to work
+// 08Jul2026 0.0.906 Now statistics and print-criteria er "wild" withe respect to the two. Next version will rectify this
+//                   USE_NESTED_SELECT 0 has always worked (but compare logs with USE_NESTED_SELECT 1 in log(4) in _log.txt)
+// 08Jul2026 0.0.905 USE_NESTED_SELECT 1 seems to work (see log(3) in _log.txt)
 // 05Jul2026 0.0.904 "/// comments used above tasks
 // 05Jul2026 0.0.904 Names of chans in main
 // 05Jul2026 0.0.903 Lots of new names! Approaching USE_NESTED_SELECT 1 usage
@@ -76,7 +78,7 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
 // CODE PROPER
 // =============================================================================================
 
-const USE_NESTED_SELECT: u32 = 1; // 0 or 1 equal for 0.0.901
+const USE_NESTED_SELECT: u32 = 0; // 0 or 1 equal for 0.0.901
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 100;
 const MAX_SUM_CNT: u32 = 1000;
