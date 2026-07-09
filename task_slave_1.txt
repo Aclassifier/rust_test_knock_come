@@ -1,0 +1,111 @@
+async fn task_slave_1(
+    ch_knock_tx: flume::Sender<()>,
+    ch_come_or_sdata_rx: flume::Receiver<Message>,
+    ch_come_tx: flume::Sender<Message>,
+) {
+    let mut state = KnockComeState::SlaveSentDataNowReady;
+    let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
+    let mut data_from_master: ExchangedDataT = 0; // History variable for SpontaneousData
+    const CURRENT_SELECT_MODE: SlaveReceiveT = match USE_NESTED_SELECT {
+        0 => SlaveReceiveT::OneSelect,
+        1 => SlaveReceiveT::SelectPlusNestedSelect,
+        _ => SlaveReceiveT::OneSelect,
+    };
+    let mut cnts = Cnts::default();
+
+    print_and_clear_debug_cnts(20, MeTaskT::Slave, &mut cnts);
+
+    loop {
+        let random_millis: u64 = {
+            let mut rng = rand::rng();
+            rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)
+        };
+
+        let local_timer = sleep(Duration::from_millis(random_millis));
+
+        tokio::select! {
+            biased;
+
+            // CASE 1: Receive from master (Always active)
+            spontaneous_data_or_come = ch_come_or_sdata_rx.recv_async() => {
+                if let Ok(msg) = spontaneous_data_or_come {
+                    match msg {
+                        Message::SpontaneousData { val } => {
+                            // CORRECTED: Verify sequence only for actual spontaneous data stream
+                            assert_eq!(
+                                val,
+                                data_from_master + DATA_FIRST_AND_INC,
+                                "[Slave] Data sequence gap detected in SpontaneousData!"
+                            );
+                            cnts.spontaneous_datas += 1;
+                            // Update history tracking for spontaneous data
+                            data_from_master = val;
+                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
+
+                            if cnts.rec_sent_cnt == MAX_SUM_CNT {
+                                print_and_clear_debug_cnts(21, MeTaskT::Slave, &mut cnts);
+                            } else { }
+                        }
+                        Message::Come => {
+                            panic!("[Slave] Spontaneous Come not allowed");
+                        }
+                        _ => panic!("[Slave] Unexpected packet type received!"),
+                    }
+                } else {
+                    panic!("[Slave] msg not ok");
+                }
+            }
+
+            // CASE 2: Local Timer
+            _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
+
+                let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
+                cnts.knocks += 1;
+                state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
+                println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
+
+                'await_come: loop {
+                    tokio::select! {
+                        biased;
+                        spontaneous_data_or_come = ch_come_or_sdata_rx.recv_async() => {
+                            if let Ok(msg) = spontaneous_data_or_come {
+                                match msg {
+                                    Message::SpontaneousData { val } => {
+                                        assert_eq!(
+                                            val,
+                                            data_from_master + DATA_FIRST_AND_INC,
+                                            "[Slave] Data sequence gap detected in SpontaneousData!"
+                                        );
+                                        cnts.spontaneous_datas_2 += 1;
+
+                                        if cnts.rec_sent_cnt == MAX_SUM_CNT{
+                                            print_and_clear_debug_cnts(22, MeTaskT::Slave, &mut cnts);
+                                        } else { }
+                                        // Update history tracking for spontaneous data
+                                        data_from_master = val;
+                                        println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
+                                        // NOT break 'await_come; since we must stay tuned until Come has been received
+                                    }
+                                    Message::Come => {
+                                        cnts.comes += 1;
+                                        state = slave_set_knock_come_state(state, KnockComeState::SlaveGotCome);
+                                        let after_knock_come_the_data = Message::SlaveData { val: data_from_slave };
+                                        let _ = ch_come_tx.send_async(after_knock_come_the_data).await; // .try_send not needed here
+                                        cnts.datas += 1;
+                                        println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", data_from_slave));
+                                        data_from_slave += DATA_FIRST_AND_INC;
+                                        state = slave_set_knock_come_state(state, KnockComeState::SlaveSentDataNowReady);
+                                        break 'await_come; // Finished
+                                    }
+                                    _ => panic!("[Slave] Come or sdata expected!")
+                                }
+                            } else {
+                                panic!("[Slave] msg not ok");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
