@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.909";
+const VERSION: &str = "0.0.910";
 //
+// 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
 // 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
 // 09Jul2026 0.0.908 Layout
 // 09Jul2026 0.0.908 Now only two tasks, with internals controleld by USE_NESTED_SELECT 0 or 1. Come in slave now a function.
@@ -122,15 +123,9 @@ use std::time::Instant; // Put this with the other imports at the top of src/mai
 // LOGGING
 // =============================================================================================
 
-#[derive(PartialEq)]
-enum MeTaskT {
-    Master,
-    Slave,
-}
-
 #[derive(Debug, Clone, Copy)] // Removed Default from here!
 #[allow(dead_code)]
-struct Cnts {
+struct MasterCnts {
     sent_cnt: u32,
     rec_cnt: u32,
     rec_sent_cnt: u32,
@@ -141,7 +136,14 @@ struct Cnts {
     sum_rec_cnt: u32,
     send_err_cnt: u32,
     last_print_time: Instant,
-    // Some would overlap with above, but nice for nested select (started by me in knock_come_redraw.rs)
+    knocks: u64,
+    comes: u64,
+    datas: u64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SlaveCnts {
+    last_print_time: Instant,
     knocks: u64,
     comes: u64,
     datas: u64,
@@ -149,8 +151,7 @@ struct Cnts {
     spontaneous_datas_2: u64,
 }
 
-// This manual block is now the ONLY initialization rule for Cnts
-impl Default for Cnts {
+impl Default for MasterCnts {
     fn default() -> Self {
         Self {
             sent_cnt: 0,
@@ -162,7 +163,18 @@ impl Default for Cnts {
             sum_sent_cnt: 0,
             sum_rec_cnt: 0,
             send_err_cnt: 0,
-            last_print_time: Instant::now(), // Now this field physically exists!
+            last_print_time: Instant::now(),
+            knocks: 0,
+            comes: 0,
+            datas: 0,
+        }
+    }
+}
+
+impl Default for SlaveCnts {
+    fn default() -> Self {
+        Self {
+            last_print_time: Instant::now(),
             knocks: 0,
             comes: 0,
             datas: 0,
@@ -187,14 +199,10 @@ fn print_welcome() {
     );
 }
 
-fn print_and_clear_debug_cnts(caller: u64, me_task: MeTaskT, cnts: &mut Cnts) {
-    let current_me_task = if me_task == MeTaskT::Master {
-        "Master"
-    } else if me_task == MeTaskT::Slave {
-        "Slave"
-    } else {
-        "?"
-    };
+fn print_and_clear_master_cnts(caller: u64, cnts: &mut MasterCnts) {
+    // Calculate delta seconds since the last printout
+    let now = Instant::now();
+    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
 
     let current_sign = if cnts.rec_cnt > cnts.sent_cnt {
         ">"
@@ -217,17 +225,11 @@ fn print_and_clear_debug_cnts(caller: u64, me_task: MeTaskT, cnts: &mut Cnts) {
     } else {
         "catch"
     };
-
-    // Calculate delta seconds since the last printout
-    let now = Instant::now();
-    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
-
     // Prints the metrics with delta seconds appended to the start or end of the log
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "{} [{}] REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {}) {} {}\tDT {:.2}s knocks {} comes {} datas {} spontaneous_datas {} + spontaneous_datas_2 {} = {}",
-            current_me_task,
+            "M @{} REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {}) {} {} knocks {} comes {} datas {}\tDT {:.2}s",
             caller,
             cnts.rec_cnt,
             current_sign,
@@ -240,29 +242,44 @@ fn print_and_clear_debug_cnts(caller: u64, me_task: MeTaskT, cnts: &mut Cnts) {
             cnts.sum_sent_cnt,
             catch_uppercase,
             cnts.send_err_cnt,
-            delta_secs, // Injected into the printout
-            //
+            cnts.knocks,
+            cnts.comes,
+            cnts.datas,
+            delta_secs,
+        ),
+    );
+
+    // Reset master-counters
+    *cnts = MasterCnts::default();
+    cnts.last_print_time = now;
+}
+
+fn print_and_clear_slave_cnts(caller: u64, cnts: &mut SlaveCnts) {
+    let now = Instant::now();
+    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
+
+    // Prints the metrics with delta seconds appended to the start or end of the log
+    println_iff(
+        LogLevel::CountersOnly,
+        format_args!(
+            "S @{} knocks {} comes {} datas {} spontaneous_datas {} + spontaneous_datas_2 {} = {}\tDT {:.2}s",
+            caller,
             cnts.knocks,
             cnts.comes,
             cnts.datas,
             cnts.spontaneous_datas,
             cnts.spontaneous_datas_2,
-            cnts.spontaneous_datas + cnts.spontaneous_datas_2
+            cnts.spontaneous_datas + cnts.spontaneous_datas_2,
+            delta_secs,
         ),
     );
 
-    // Reset interval counters and update the time benchmark for the next 50-tick
-    cnts.sent_cnt = 0;
-    cnts.rec_cnt = 0;
-    cnts.rec_sent_cnt = 0;
-    cnts.rec_gt_sent_cnt = 0;
-    cnts.rec_eq_sent_cnt = 0;
-    cnts.rec_lt_sent_cnt = 0;
-    cnts.send_err_cnt = 0; // Also zeroing this, same rule as the others
-    cnts.last_print_time = now; // Reset timer benchmark
+    // Reset slave-counters
+    *cnts = SlaveCnts::default();
+    cnts.last_print_time = now;
 }
 
-fn update_fairness_cnts(cnts: &mut Cnts) {
+fn update_fairness_cnts(cnts: &mut MasterCnts) {
     if cnts.rec_cnt > cnts.sent_cnt {
         cnts.rec_gt_sent_cnt += 1;
     } else if cnts.rec_cnt < cnts.sent_cnt {
@@ -402,7 +419,7 @@ async fn task_master(
 
     let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
-    let mut cnts = Cnts::default();
+    let mut cnts = MasterCnts::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
     const CURRENT_SEND_MODE: MasterComeSendT = match USE_NESTED_SELECT {
@@ -411,7 +428,7 @@ async fn task_master(
         _ => MasterComeSendT::SendAsynchAwait,
     };
 
-    print_and_clear_debug_cnts(0, MeTaskT::Master, &mut cnts);
+    print_and_clear_master_cnts(0, &mut cnts);
 
     loop {
         let random_millis = {
@@ -469,7 +486,7 @@ async fn task_master(
                             // Update fairness metrics and check if it's time to print and reset interval counters
                             update_fairness_cnts(&mut cnts);
                             if cnts.rec_sent_cnt == MAX_SUM_CNT {
-                                print_and_clear_debug_cnts(1, MeTaskT::Master, &mut cnts);
+                                print_and_clear_master_cnts(1, &mut cnts);
                             } else { }
                         }
                         _ => {
@@ -508,10 +525,9 @@ async fn task_master(
                     cnts.sent_cnt += 1;
                     cnts.rec_sent_cnt += 1;
                     cnts.sum_sent_cnt += 1;
-                    cnts.spontaneous_datas += 1;
                     update_fairness_cnts(&mut cnts);
                     if cnts.rec_sent_cnt == MAX_SUM_CNT {
-                        print_and_clear_debug_cnts(2, MeTaskT::Master, &mut cnts);
+                        print_and_clear_master_cnts(2, &mut cnts);
                     } else { }
                 } else {
                     cnts.send_err_cnt += 1;
@@ -534,7 +550,7 @@ async fn handle_slave_come(
     state: &mut KnockComeState,
     ch_come_tx: &flume::Sender<Message>,
     data_from_slave: &mut ExchangedDataT,
-    cnts: &mut Cnts,
+    cnts: &mut SlaveCnts,
 ) {
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveGotCome);
 
@@ -580,9 +596,9 @@ async fn task_slave(
         1 => SlaveReceiveT::SelectPlusNestedSelect,
         _ => SlaveReceiveT::OneSelect,
     };
-    let mut cnts = Cnts::default();
+    let mut cnts = SlaveCnts::default();
 
-    print_and_clear_debug_cnts(20, MeTaskT::Slave, &mut cnts);
+    print_and_clear_slave_cnts(20, &mut cnts);
 
     loop {
         let random_millis: u64 = {
@@ -611,8 +627,8 @@ async fn task_slave(
                             data_from_master = val;
                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
 
-                            if cnts.rec_sent_cnt == MAX_SUM_CNT {
-                                print_and_clear_debug_cnts(21, MeTaskT::Slave, &mut cnts);
+                            if data_from_master % MAX_SUM_CNT == 0 {
+                                print_and_clear_slave_cnts(20, &mut cnts);
                             } else { }
                         }
 
@@ -653,8 +669,8 @@ async fn task_slave(
                                             );
                                             cnts.spontaneous_datas_2 += 1;
 
-                                            if cnts.rec_sent_cnt == MAX_SUM_CNT{
-                                                print_and_clear_debug_cnts(22, MeTaskT::Slave, &mut cnts);
+                                            if data_from_master % MAX_SUM_CNT == 0 {
+                                                print_and_clear_slave_cnts(20, &mut cnts);
                                             } else { }
                                             // Update history tracking for spontaneous data
                                             data_from_master = val;
