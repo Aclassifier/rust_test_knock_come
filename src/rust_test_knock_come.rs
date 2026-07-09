@@ -10,6 +10,7 @@
 //
 const VERSION: &str = "0.0.908";
 //
+// 09Jul2026 0.0.908 Layout
 // 09Jul2026 0.0.908 Now only two tasks, with internals controleld by USE_NESTED_SELECT 0 or 1. Come in slave now a function.
 //                   Proper ///-headers added. Not tested, no logs!
 // 08Jul2026 0.0.907 The two master tasks now is only one, where send come is controlled by USE_NESTED_SELECT. In work, no logs
@@ -59,6 +60,15 @@ const USE_NESTED_SELECT: u32 = 0; // 0 or 1 equal for 0.0.901
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 100;
 const MAX_SUM_CNT: u32 = 1000;
+
+// Between task_master and task_slave, channels set up in main
+#[derive(Clone, Debug, PartialEq)]
+enum Message {
+    // fields are simply named 'val' since the variant tells us the context
+    SpontaneousData { val: ExchangedDataT },
+    Come, // No data
+    SlaveData { val: ExchangedDataT },
+}
 
 // =============================================================================================
 // CONTROL LOGGING
@@ -110,6 +120,7 @@ use std::time::Instant; // Put this with the other imports at the top of src/mai
 // =============================================================================================
 // LOGGING
 // =============================================================================================
+
 #[derive(PartialEq)]
 enum MeTaskT {
     Master,
@@ -258,14 +269,6 @@ fn update_fairness_cnts(cnts: &mut Cnts) {
     } else {
         cnts.rec_eq_sent_cnt += 1;
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum Message {
-    // fields are simply named 'val' since the variant tells us the context
-    SpontaneousData { val: ExchangedDataT },
-    Come, // No data
-    SlaveData { val: ExchangedDataT },
 }
 
 // =============================================================================================
@@ -553,6 +556,7 @@ async fn handle_slave_come(
     *data_from_slave += DATA_FIRST_AND_INC;
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveSentDataNowReady);
 }
+
 /// task_slave
 ///
 /// # Arguments
