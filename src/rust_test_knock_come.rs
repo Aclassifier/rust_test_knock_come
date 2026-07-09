@@ -8,8 +8,9 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.908";
+const VERSION: &str = "0.0.909";
 //
+// 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
 // 09Jul2026 0.0.908 Layout
 // 09Jul2026 0.0.908 Now only two tasks, with internals controleld by USE_NESTED_SELECT 0 or 1. Come in slave now a function.
 //                   Proper ///-headers added. Not tested, no logs!
@@ -56,13 +57,13 @@ use tokio::time::sleep;
 // GLOBALS
 // =============================================================================================
 //
-const USE_NESTED_SELECT: u32 = 0; // 0 or 1 equal for 0.0.901
+const USE_NESTED_SELECT: u32 = 0; // 0 or 1
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 100;
 const MAX_SUM_CNT: u32 = 1000;
 
 // Between task_master and task_slave, channels set up in main
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Message {
     // fields are simply named 'val' since the variant tells us the context
     SpontaneousData { val: ExchangedDataT },
