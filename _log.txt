@@ -1,14 +1,10 @@
-Rust KNOCK-COME v0.0.911 USE_NESTED_SELECT 0 on 12Jul2026 18:59
+Rust KNOCK-COME v0.0.912 USE_NESTED_SELECT 0 on 12Jul2026 21:32
 Time random max 100 ms, cnt events at 1000 (Teig)
 task_master and task_slave running in parallel forever
 
 S @20   KNOCK 0 COME 0  SENT 0  SDATA 0+0=0                     DT 0.00s
 M @0    KNOCK 0 COME 0  DATA 0  SDATA 0         MASTER-EQL      DT 0.00s
-M @2    KNOCK 965       COME 965        DATA 965        SDATA 1000              MASTER-DEC      DT 67.04s
-S @20   KNOCK 965       COME 965        SENT 965        SDATA 1000+0=1000                       DT 67.04s
-M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 940               MASTER-INC      DT 67.36s
-S @20   KNOCK 1066      COME 1066       SENT 1066       SDATA 1000+0=1000                       DT 71.80s
-M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 960               MASTER-INC      DT 68.95s
-S @20   KNOCK 1045      COME 1045       SENT 1045       SDATA 1000+0=1000                       DT 71.62s
-M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 976               MASTER-INC      DT 69.32s
-S @20   KNOCK 1008      COME 1008       SENT 1008       SDATA 1000+0=1000                       DT 70.97s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 963               MASTER-INC      DT 51.35s
+S @20   KNOCK 1037      COME 1037       SENT 1037       SDATA 1000+0=1000                       DT 53.44s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 996               MASTER-INC      DT 51.35s
+S @20   KNOCK 1010      COME 1010       SENT 1010       SDATA 1000+0=1000                       DT 51.66s

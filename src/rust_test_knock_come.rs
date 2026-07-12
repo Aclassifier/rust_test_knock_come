@@ -54,7 +54,6 @@ const VERSION: &str = "0.0.911";
 
 use rand::Rng;
 use std::time::Duration;
-use tokio::time::sleep;
 
 // =============================================================================================
 // GLOBALS
@@ -396,15 +395,17 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
 
     print_and_clear_master_cnts(0, &mut cnts_per, &mut cnts_mon);
 
+    // Helper closure/function to generate a new random duration
+    let get_random_duration = || {
+        let mut rng = rand::rng();
+        Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+    };
+
+    // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
+    let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
+    tokio::pin!(local_timer);
+
     loop {
-        let random_millis = {
-            let mut rng = rand::rng();
-            rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)
-        };
-
-        // Renamed to local_timer to match the slave exactly
-        let local_timer = sleep(Duration::from_millis(random_millis));
-
         // We use tokio::select! instead of flume::Selector to get strict event priority (PRI ALT / [[ordered]] select).
         // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
         // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers.
@@ -466,7 +467,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
             }
 
             // CASE 2: Local Timer Ticked
-            _ = local_timer =>
+            _ = &mut local_timer =>
             {
                 // Create the message with the CURRENT value first
                 let spontaneous_data = Message::SpontaneousData { val: data_from_master };
@@ -495,6 +496,9 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
                 } else {
                     cnts_per.ms_spontaneous_data_err_cnt += 1;
                 }
+
+                let next_timeout = tokio::time::Instant::now() + get_random_duration();
+                local_timer.as_mut().reset(next_timeout);
             }
         }
     }
@@ -542,14 +546,17 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
 
     print_and_clear_slave_cnts(20, &mut cnts_per);
 
+    // Helper closure/function to generate a new random duration
+    let get_random_duration = || {
+        let mut rng = rand::rng();
+        Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+    };
+
+    // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
+    let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
+    tokio::pin!(local_timer);
+
     loop {
-        let random_millis: u64 = {
-            let mut rng = rand::rng();
-            rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)
-        };
-
-        let local_timer = sleep(Duration::from_millis(random_millis));
-
         tokio::select! {
             biased;
 
@@ -564,10 +571,9 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                 data_from_master + DATA_FIRST_AND_INC,
                                 "[Slave] Data sequence gap detected in ms_SpontaneousData!"
                             );
-                            cnts_per.ms_spontaneous_data_cnt_1 += 1;
-                            // Update history tracking for spontaneous data
                             data_from_master = val;
                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
+                            cnts_per.ms_spontaneous_data_cnt_1 += 1;
 
                             if data_from_master % MAX_SUM_CNT == 0 {
                                 print_and_clear_slave_cnts(20, &mut cnts_per);
@@ -576,9 +582,9 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
 
                         Message::Come => {
                             if CURRENT_SELECT_MODE == SlaveReceiveT::OneSelect {
+                                cnts_per.ms_come_cnt += 1;
                                 after_knock_come_data_send(&mut state, &ch_come_tx, &mut data_from_slave).await;
                                 cnts_per.sm_data_cnt += 1;
-                                cnts_per.ms_come_cnt += 1;
                             } else {
                                 panic!(r#"[Slave] No "spontaneous" come here"#); // Raw string avoids backslash for embedded quote
                             }
@@ -591,7 +597,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
             }
 
             // CASE 2: Local Timer
-            _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
+            _ = &mut local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
 
                 let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
                 cnts_per.sm_knock_cnt += 1;
@@ -611,20 +617,20 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                                 data_from_master + DATA_FIRST_AND_INC,
                                                 "[Slave] Data sequence gap detected in ms_SpontaneousData!"
                                             );
+                                            data_from_master = val;
                                             cnts_per.ms_spontaneous_data_cnt_2 += 1;
+                                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
 
                                             if data_from_master % MAX_SUM_CNT == 0 {
                                                 print_and_clear_slave_cnts(20, &mut cnts_per);
                                             } else { }
-                                            // Update history tracking for spontaneous data
-                                            data_from_master = val;
-                                            println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
+
                                             // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
                                         Message::Come => {
+                                            cnts_per.ms_come_cnt += 1;
                                             after_knock_come_data_send(&mut state, &ch_come_tx, &mut data_from_slave).await;
                                             cnts_per.sm_data_cnt += 1;
-                                            cnts_per.ms_come_cnt += 1;
                                             break 'await_come;
                                         }
                                         _ => panic!("[Slave] Come or sdata expected!")
@@ -636,6 +642,8 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                         }
                     } // end 'await_come: loop
                 }
+                let next_timeout = tokio::time::Instant::now() + get_random_duration();
+                local_timer.as_mut().reset(next_timeout);
             }
         }
     }
