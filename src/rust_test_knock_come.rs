@@ -8,8 +8,10 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.911";
+const VERSION: &str = "0.0.912";
 //
+// 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to RANDOM_VAL_MAX_MS 99
+//                   Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
 // 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
 // 12Jul2026 0.0.910 Layout. after_knock_come_data_send new name
 // 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
@@ -61,7 +63,7 @@ use std::time::Duration;
 //
 const USE_NESTED_SELECT: u32 = 0; // 0 or 1
 const RANDOM_VAL_MIN_MS: u64 = 0;
-const RANDOM_VAL_MAX_MS: u64 = 100;
+const RANDOM_VAL_MAX_MS: u64 = 99;
 const MAX_SUM_CNT: u32 = 1000;
 
 macro_rules! code_block { ($($tokens:tt)*) => { $($tokens)* }; } // Avoids #[rustfmt::skip], no explicit export from block needed
