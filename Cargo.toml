@@ -10,6 +10,6 @@ tokio = { version = "1.52.3", features = ["full"] }
 rand = "0.9"
 chrono = "0.4"
 
-[[bin]]
+[[bin]] # many [[bin]] allowed (array)
 name = "rust_test_knock_come"
 path = "src/rust_test_knock_come.rs"

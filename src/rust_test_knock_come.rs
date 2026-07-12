@@ -8,9 +8,10 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.910";
+const VERSION: &str = "0.0.911";
 //
-// 12Jul2026 0.0.910 Layout. slave_finally_send_data new name
+// 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
+// 12Jul2026 0.0.910 Layout. after_knock_come_data_send new name
 // 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
 // 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
 // 09Jul2026 0.0.908 Layout
@@ -33,7 +34,7 @@ const VERSION: &str = "0.0.910";
 //                   but they are clickable in VS Code
 // 21Jun2026 0.0.900 print_welcome like in XC. Using chrono. Plus some comments on the
 //                   "catch" part of try_send in task_b_master
-// 21Jun2026 0.0.320 send_err_cnt is new. Typically between 1 and 18 (obs random timeouts)
+// 21Jun2026 0.0.320 ms_spontaneous_data_err_cnt is new. Typically between 1 and 18 (obs random timeouts)
 // 20Jun2026 0.0.312 Name of channels changed, and some variables
 // 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
 // 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
@@ -92,9 +93,7 @@ const CURRENT_LOG_LEVEL: LogLevel = LogLevel::CountersOnly; // None, CountersOnl
 
 // Central logging function that filters everything
 fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
-    if CURRENT_LOG_LEVEL == LogLevel::All
-        && (level == LogLevel::All || level == LogLevel::CountersOnly)
-    {
+    if CURRENT_LOG_LEVEL == LogLevel::All && (level == LogLevel::All || level == LogLevel::CountersOnly) {
         println!("{}", args);
     } else if CURRENT_LOG_LEVEL == LogLevel::CountersOnly && level == LogLevel::CountersOnly {
         println!("{}", args);
@@ -124,65 +123,74 @@ use std::time::Instant; // Put this with the other imports at the top of src/mai
 
 // =============================================================================================
 // LOGGING
+// Legend
+//     ms_ from Master to Slave
+//     sm_ from Slave to Master
 // =============================================================================================
-
 #[derive(Debug, Clone, Copy)] // Removed Default from here!
 #[allow(dead_code)]
-struct MasterCnts {
-    sent_cnt: u32,
-    rec_cnt: u32,
-    rec_sent_cnt: u32,
-    rec_gt_sent_cnt: u32,
-    rec_eq_sent_cnt: u32,
-    rec_lt_sent_cnt: u32,
-    sum_sent_cnt: u32,
-    sum_rec_cnt: u32,
-    send_err_cnt: u32,
-    last_print_time: Instant,
-    knocks: u64,
-    comes: u64,
-    datas: u64,
+struct MasterCntsMon {
+    // Mon = monotonously counters, as mon_ below:
+    ms_spontaneous_data_cnt_mon: u32,
+    sm_data_cnt_mon: u32,
+}
+
+impl Default for MasterCntsMon {
+    fn default() -> Self {
+        Self {
+            ms_spontaneous_data_cnt_mon: 0,
+            sm_data_cnt_mon: 0,
+        }
+    }
+}
+
+struct MasterCntsAndTimerPeriodic {
+    sm_knock_cnt: u64,
+    ms_come_cnt: u64,
+    sm_data_cnt: u32,                 // finally: from Slave to Master
+    ms_spontaneous_data_cnt: u32,     // causing ms_spontaneous_data_cnt_1 or ms_spontaneous_data_cnt_2
+    ms_spontaneous_data_err_cnt: u32, // Only if USE_NESTED_SELECT==0
+    master_fatter_cnt: u32,
+    master_same_cnt: u32,
+    master_thinner_cnt: u32,
+    print_time_prev: Instant,
+}
+
+impl Default for MasterCntsAndTimerPeriodic {
+    fn default() -> Self {
+        Self {
+            sm_knock_cnt: 0,
+            ms_come_cnt: 0,
+            sm_data_cnt: 0,
+            ms_spontaneous_data_cnt: 0,
+            ms_spontaneous_data_err_cnt: 0,
+            master_fatter_cnt: 0,
+            master_same_cnt: 0,
+            master_thinner_cnt: 0,
+            print_time_prev: Instant::now(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 struct SlaveCnts {
-    last_print_time: Instant,
-    knocks: u64,
-    comes: u64,
-    datas: u64,
-    spontaneous_datas: u64,
-    spontaneous_datas_2: u64,
-}
-
-impl Default for MasterCnts {
-    fn default() -> Self {
-        Self {
-            sent_cnt: 0,
-            rec_cnt: 0,
-            rec_sent_cnt: 0,
-            rec_gt_sent_cnt: 0,
-            rec_eq_sent_cnt: 0,
-            rec_lt_sent_cnt: 0,
-            sum_sent_cnt: 0,
-            sum_rec_cnt: 0,
-            send_err_cnt: 0,
-            last_print_time: Instant::now(),
-            knocks: 0,
-            comes: 0,
-            datas: 0,
-        }
-    }
+    sm_knock_cnt: u64,
+    ms_come_cnt: u64,
+    sm_data_cnt: u64,
+    ms_spontaneous_data_cnt_1: u64,
+    ms_spontaneous_data_cnt_2: u64,
+    print_time_prev: Instant,
 }
 
 impl Default for SlaveCnts {
     fn default() -> Self {
         Self {
-            last_print_time: Instant::now(),
-            knocks: 0,
-            comes: 0,
-            datas: 0,
-            spontaneous_datas: 0,
-            spontaneous_datas_2: 0,
+            sm_knock_cnt: 0,
+            ms_come_cnt: 0,
+            sm_data_cnt: 0,
+            ms_spontaneous_data_cnt_1: 0,
+            ms_spontaneous_data_cnt_2: 0,
+            print_time_prev: Instant::now(),
         }
     }
 }
@@ -196,99 +204,87 @@ fn print_welcome() {
     let compile_time = local_time.format("%H:%M").to_string();
 
     println!(
-        "Rust KNOCK-COME v{} USE_NESTED_SELECT {} on {} {}\n\
-         Time random max {} ms, cnt events at {} (Teig)\n",
+        "\nRust KNOCK-COME v{} USE_NESTED_SELECT {} on {} {}\n\
+         Time random max {} ms, cnt events at {} (Teig)",
         VERSION, USE_NESTED_SELECT, compile_date, compile_time, RANDOM_VAL_MAX_MS, MAX_SUM_CNT
     );
 }
 
-fn print_and_clear_master_cnts(caller: u64, cnts: &mut MasterCnts) {
+fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPeriodic, cnts_mon: &mut MasterCntsMon) {
     // Calculate delta seconds since the last printout
     let now = Instant::now();
-    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
+    let delta_secs = now.duration_since(cnts_per.print_time_prev).as_secs_f32();
 
-    let current_sign = if cnts.rec_cnt > cnts.sent_cnt {
+    let current_filling = if cnts_per.sm_data_cnt > cnts_per.ms_spontaneous_data_cnt {
+        "INC"
+    } else if cnts_per.sm_data_cnt < cnts_per.ms_spontaneous_data_cnt {
+        "DEC"
+    } else {
+        "EQL"
+    };
+
+    let _sum_sign = if cnts_mon.sm_data_cnt_mon > cnts_mon.ms_spontaneous_data_cnt_mon {
         ">"
-    } else if cnts.rec_cnt < cnts.sent_cnt {
+    } else if cnts_mon.sm_data_cnt_mon < cnts_mon.ms_spontaneous_data_cnt_mon {
         "<"
     } else {
         "="
     };
 
-    let sum_sign = if cnts.sum_rec_cnt > cnts.sum_sent_cnt {
-        ">"
-    } else if cnts.sum_rec_cnt < cnts.sum_sent_cnt {
-        "<"
-    } else {
-        "="
-    };
-
-    let catch_uppercase: &str = if cnts.send_err_cnt > 0 {
-        "CATCH"
-    } else {
-        "catch"
-    };
+    let _catch_uppercase: &str = if cnts_per.ms_spontaneous_data_err_cnt > 0 { "CATCH" } else { "catch" };
     // Prints the metrics with delta seconds appended to the start or end of the log
+    #[rustfmt::skip] // Want block layout, not compact
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "M @{} REC {}\t{}\tSENT {}\t(>{}= {} <{})\tSUM (REC {} {} SENT {}) {} {} knocks {} comes {} datas {}\tDT {:.2}s",
+            "M @{}\tKNOCK {}\tCOME {}\tDATA {}\tSDATA {}\t\tMASTER-{}\tDT {:.2}s",
             caller,
-            cnts.rec_cnt,
-            current_sign,
-            cnts.sent_cnt,
-            cnts.rec_gt_sent_cnt,
-            cnts.rec_eq_sent_cnt,
-            cnts.rec_lt_sent_cnt,
-            cnts.sum_rec_cnt,
-            sum_sign,
-            cnts.sum_sent_cnt,
-            catch_uppercase,
-            cnts.send_err_cnt,
-            cnts.knocks,
-            cnts.comes,
-            cnts.datas,
+            cnts_per.sm_knock_cnt,
+            cnts_per.ms_come_cnt,
+            cnts_per.sm_data_cnt,
+            cnts_per.ms_spontaneous_data_cnt,
+            current_filling,
             delta_secs,
         ),
     );
 
-    // Reset master-counters
-    *cnts = MasterCnts::default();
-    cnts.last_print_time = now;
+    *cnts_per = MasterCntsAndTimerPeriodic::default();
+    cnts_per.print_time_prev = now;
 }
 
-fn print_and_clear_slave_cnts(caller: u64, cnts: &mut SlaveCnts) {
+fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     let now = Instant::now();
-    let delta_secs = now.duration_since(cnts.last_print_time).as_secs_f32();
+    let delta_secs = now.duration_since(cnts_per.print_time_prev).as_secs_f32();
 
     // Prints the metrics with delta seconds appended to the start or end of the log
+    // Block layout kept
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "S @{} knocks {} comes {} datas {} spontaneous_datas {} + spontaneous_datas_2 {} = {}\tDT {:.2}s",
+            "S @{}\tKNOCK {}\tCOME {}\tSENT {}\tSDATA {}+{}={}\t\t\tDT {:.2}s",
             caller,
-            cnts.knocks,
-            cnts.comes,
-            cnts.datas,
-            cnts.spontaneous_datas,
-            cnts.spontaneous_datas_2,
-            cnts.spontaneous_datas + cnts.spontaneous_datas_2,
+            cnts_per.sm_knock_cnt,
+            cnts_per.ms_come_cnt,
+            cnts_per.sm_data_cnt,
+            cnts_per.ms_spontaneous_data_cnt_1,
+            cnts_per.ms_spontaneous_data_cnt_2,
+            cnts_per.ms_spontaneous_data_cnt_1 + cnts_per.ms_spontaneous_data_cnt_2,
             delta_secs,
         ),
     );
 
     // Reset slave-counters
-    *cnts = SlaveCnts::default();
-    cnts.last_print_time = now;
+    *cnts_per = SlaveCnts::default();
+    cnts_per.print_time_prev = now;
 }
 
-fn update_fairness_cnts(cnts: &mut MasterCnts) {
-    if cnts.rec_cnt > cnts.sent_cnt {
-        cnts.rec_gt_sent_cnt += 1;
-    } else if cnts.rec_cnt < cnts.sent_cnt {
-        cnts.rec_lt_sent_cnt += 1;
+fn update_master_view_fairness_cnts(cnts_per: &mut MasterCntsAndTimerPeriodic) {
+    if cnts_per.sm_data_cnt > cnts_per.ms_spontaneous_data_cnt {
+        cnts_per.master_fatter_cnt += 1;
+    } else if cnts_per.sm_data_cnt < cnts_per.ms_spontaneous_data_cnt {
+        cnts_per.master_thinner_cnt += 1;
     } else {
-        cnts.rec_eq_sent_cnt += 1;
+        cnts_per.master_same_cnt += 1;
     }
 }
 
@@ -300,11 +296,11 @@ fn update_fairness_cnts(cnts: &mut MasterCnts) {
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum KnockComeState {
     SlaveSentDataNowReady, // Also init -> SlaveSentKnock
-    SlaveSentKnock, //           -> SlaveGotCome or SlaveGotSpontaneousData (value not needed)
-    SlaveGotCome,   //           -> SlaveSentDataNowReady (atomic)
+    SlaveSentKnock,        //           -> SlaveGotCome or SlaveGotSpontaneousData (value not needed)
+    SlaveGotCome,          //           -> SlaveSentDataNowReady (atomic)
     MasterGotDataNowReady, // Also init -> MasterGotKnock
-    MasterGotKnock, //           -> MasterSentCome
-    MasterSentCome, //           -> MasterGotDataNowReady (atomic)
+    MasterGotKnock,        //           -> MasterSentCome
+    MasterSentCome,        //           -> MasterGotDataNowReady (atomic)
 }
 
 /// slave_set_knock_come_state transitions the slave's state from the current value to a new value.
@@ -321,37 +317,23 @@ enum KnockComeState {
 ///
 /// Returns the updated `KnockComeState` that should be assigned to the slave's local state variable.
 ///
-fn slave_set_knock_come_state(
-    present_state: KnockComeState,
-    new_state: KnockComeState,
-) -> KnockComeState {
+fn slave_set_knock_come_state(present_state: KnockComeState, new_state: KnockComeState) -> KnockComeState {
     // Rust uses 'cfg(debug_assertions)' to automatically enable/disable debug code.
     // This code only runs when compiling in debug mode (like #if DEBUG_KNOCKCOME == 1)
     if cfg!(debug_assertions) {
         match new_state {
             KnockComeState::SlaveSentKnock => {
-                assert_eq!(
-                    present_state,
-                    KnockComeState::SlaveSentDataNowReady,
-                    "Invalid slave transition to SlaveSentKnock!"
-                );
+                assert_eq!(present_state, KnockComeState::SlaveSentDataNowReady, "Invalid slave transition to SlaveSentKnock!");
             }
             KnockComeState::SlaveGotCome => {
-                assert_eq!(
-                    present_state,
-                    KnockComeState::SlaveSentKnock,
-                    "Invalid slave transition to SlaveGotCome!"
-                );
+                assert_eq!(present_state, KnockComeState::SlaveSentKnock, "Invalid slave transition to SlaveGotCome!");
             }
             KnockComeState::SlaveSentDataNowReady => {
                 // No assertions needed here according to your XC code
             }
             // Rust enforces that all enum variants must be covered.
             // If new_state is a Master-state, we fail immediately:
-            _ => panic!(
-                "Slave attempted to transition to an invalid state: {:?}",
-                new_state
-            ),
+            _ => panic!("Slave attempted to transition to an invalid state: {:?}", new_state),
         }
     }
 
@@ -369,35 +351,21 @@ fn slave_set_knock_come_state(
 /// * `present_state` - The current active state of the master event loop.
 /// * `new_state` - The target state to transition into.
 ///
-fn master_set_knock_come_state(
-    present_state: KnockComeState,
-    new_state: KnockComeState,
-) -> KnockComeState {
+fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockComeState) -> KnockComeState {
     // This code only runs when compiling in debug mode (equivalent to #if DEBUG_KNOCKCOME == 1)
     if cfg!(debug_assertions) {
         match new_state {
             KnockComeState::MasterGotKnock => {
-                assert_eq!(
-                    present_state,
-                    KnockComeState::MasterGotDataNowReady,
-                    "Invalid master transition to MasterGotKnock!"
-                );
+                assert_eq!(present_state, KnockComeState::MasterGotDataNowReady, "Invalid master transition to MasterGotKnock!");
             }
             KnockComeState::MasterSentCome => {
-                assert_eq!(
-                    present_state,
-                    KnockComeState::MasterGotKnock,
-                    "Invalid master transition to MasterSentCome!"
-                );
+                assert_eq!(present_state, KnockComeState::MasterGotKnock, "Invalid master transition to MasterSentCome!");
             }
             KnockComeState::MasterGotDataNowReady => {
                 // No code since ..NOW_READY according to your XC code
             }
             // Catch-all to panic if the master attempts to use a Slave state
-            _ => panic!(
-                "Master attempted to transition to an invalid state: {:?}",
-                new_state
-            ),
+            _ => panic!("Master attempted to transition to an invalid state: {:?}", new_state),
         }
     }
 
@@ -410,19 +378,14 @@ fn master_set_knock_come_state(
 /// # Arguments
 ///
 /// * `ch_knock_rx` - [channel receiving knock signals]
-/// * `ch_come_or_sdata_tx` - [channel sending Come or SpontaneousData messages]
+/// * `ch_come_or_sdata_tx` - [channel sending Come or ms_SpontaneousData messages]
 /// * `ch_come_rx` - [channel receiving Come messages]
 ///
-async fn task_master(
-    ch_knock_rx: flume::Receiver<()>,
-    ch_come_or_sdata_tx: flume::Sender<Message>,
-    ch_come_rx: flume::Receiver<Message>,
-) {
-    print_welcome(); // Always
-
+async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flume::Sender<Message>, ch_come_rx: flume::Receiver<Message>) {
     let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
-    let mut cnts = MasterCnts::default();
+    let mut cnts_per = MasterCntsAndTimerPeriodic::default();
+    let mut cnts_mon = MasterCntsMon::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
     const CURRENT_SEND_MODE: MasterComeSendT = match USE_NESTED_SELECT {
@@ -431,7 +394,7 @@ async fn task_master(
         _ => MasterComeSendT::SendAsynchAwait,
     };
 
-    print_and_clear_master_cnts(0, &mut cnts);
+    print_and_clear_master_cnts(0, &mut cnts_per, &mut cnts_mon);
 
     loop {
         let random_millis = {
@@ -456,20 +419,20 @@ async fn task_master(
                     println_iff(LogLevel::All, format_args!("[Master] Received KNOCK from slave."));
                     state = master_set_knock_come_state(state, KnockComeState::MasterGotKnock);
 
-                    cnts.knocks += 1;
+                    cnts_per.sm_knock_cnt += 1;
 
                     // Transmit the clean COME signal to the slave without any payload
                     let _ = ch_come_or_sdata_tx.send_async(Message::Come).await; // .try_send not needed here
 
-                    cnts.comes += 1;
+                    cnts_per.ms_come_cnt += 1;
 
                     state = master_set_knock_come_state(state, KnockComeState::MasterSentCome);
 
                     // Receive the synchronous reply from the slave
-                    let after_knock_come_the_data = ch_come_rx.recv_async().await;
+                    let after_knock_come_data = ch_come_rx.recv_async().await;
 
                     // Verify packet type and payload (matches xassert logic in XC)
-                    match after_knock_come_the_data {
+                    match after_knock_come_data {
                         Ok(Message::SlaveData { val }) => {
                             // Verify that incoming slave data matches history + incremental step
                             assert_eq!(
@@ -480,16 +443,14 @@ async fn task_master(
                             // Update history tracking for slave data
                             data_from_slave = val;
                             println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_slave));
-                            // Update statistics tracking (equivalent to XC metrics)
-                            cnts.rec_cnt += 1;
-                            cnts.rec_sent_cnt += 1;
-                            cnts.sum_rec_cnt += 1;
-                            cnts.datas += 1;
+                            // Update statistics tracking
+                            cnts_per.sm_data_cnt += 1;
+                            cnts_mon.sm_data_cnt_mon += 1;
                             // Calculate and evaluate protocol fairness
                             // Update fairness metrics and check if it's time to print and reset interval counters
-                            update_fairness_cnts(&mut cnts);
-                            if cnts.rec_sent_cnt == MAX_SUM_CNT {
-                                print_and_clear_master_cnts(1, &mut cnts);
+                            update_master_view_fairness_cnts(&mut cnts_per);
+                            if cnts_per.sm_data_cnt == MAX_SUM_CNT {
+                                print_and_clear_master_cnts(1, &mut cnts_per, &mut cnts_mon);
                             } else { }
                         }
                         _ => {
@@ -525,53 +486,35 @@ async fn task_master(
                     data_from_master += DATA_FIRST_AND_INC;
 
                     // Update statistics tracking
-                    cnts.sent_cnt += 1;
-                    cnts.rec_sent_cnt += 1;
-                    cnts.sum_sent_cnt += 1;
-                    update_fairness_cnts(&mut cnts);
-                    if cnts.rec_sent_cnt == MAX_SUM_CNT {
-                        print_and_clear_master_cnts(2, &mut cnts);
+                    cnts_per.ms_spontaneous_data_cnt += 1;
+                    cnts_mon.ms_spontaneous_data_cnt_mon += 1;
+                    update_master_view_fairness_cnts(&mut cnts_per);
+                    if cnts_per.ms_spontaneous_data_cnt == MAX_SUM_CNT {
+                        print_and_clear_master_cnts(2, &mut cnts_per, &mut cnts_mon);
                     } else { }
                 } else {
-                    cnts.send_err_cnt += 1;
+                    cnts_per.ms_spontaneous_data_err_cnt += 1;
                 }
             }
         }
     }
 }
 
-/// slave_finally_send_data
+/// after_knock_come_data_send
 ///
 /// # Arguments
 ///
 /// * `state` - Mutable reference to the current handshake state of the slave.
 /// * `ch_come_tx` - Reference to the flume channel used for sending the SlaveData message.
 /// * `data_from_slave` - Mutable reference to the payload data counter/value sequence.
-/// * `cnts` - Mutable reference to the metrics tracking struct to update counters.
 ///
-async fn slave_finally_send_data(
-    state: &mut KnockComeState,
-    ch_come_tx: &flume::Sender<Message>,
-    data_from_slave: &mut ExchangedDataT,
-    cnts: &mut SlaveCnts,
-) {
+async fn after_knock_come_data_send(state: &mut KnockComeState, ch_come_tx: &flume::Sender<Message>, data_from_slave: &mut ExchangedDataT) {
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveGotCome);
 
-    let after_knock_come_the_data = Message::SlaveData {
-        val: *data_from_slave,
-    };
-    let _ = ch_come_tx.send_async(after_knock_come_the_data).await;
+    let after_knock_come_data = Message::SlaveData { val: *data_from_slave };
+    let _ = ch_come_tx.send_async(after_knock_come_data).await;
 
-    cnts.datas += 1;
-    cnts.comes += 1;
-
-    println_iff(
-        LogLevel::All,
-        format_args!(
-            "[Slave] Handshake complete. Sent SlaveData: {}",
-            *data_from_slave
-        ),
-    );
+    println_iff(LogLevel::All, format_args!("[Slave] Handshake complete. Sent SlaveData: {}", *data_from_slave));
 
     *data_from_slave += DATA_FIRST_AND_INC;
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveSentDataNowReady);
@@ -582,26 +525,22 @@ async fn slave_finally_send_data(
 /// # Arguments
 ///
 /// * `ch_knock_tx` - The flume channel used for sending local timeout knock signals.
-/// * `ch_come_or_sdata_rx` - The flume channel receiving incoming messages (Come or SpontaneousData) from the master.
+/// * `ch_come_or_sdata_rx` - The flume channel receiving incoming messages (Come or ms_SpontaneousData) from the master.
 /// * `ch_come_tx` - The flume channel used to transmit the final handshake response (SlaveData).
 ///
-async fn task_slave(
-    ch_knock_tx: flume::Sender<()>,
-    ch_come_or_sdata_rx: flume::Receiver<Message>,
-    ch_come_tx: flume::Sender<Message>,
-) {
+async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::Receiver<Message>, ch_come_tx: flume::Sender<Message>) {
     let mut state = KnockComeState::SlaveSentDataNowReady;
     let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
-    let mut data_from_master: ExchangedDataT = 0; // History variable for SpontaneousData
+    let mut data_from_master: ExchangedDataT = 0; // History variable for ms_SpontaneousData
 
     const CURRENT_SELECT_MODE: SlaveReceiveT = match USE_NESTED_SELECT {
         0 => SlaveReceiveT::OneSelect,
         1 => SlaveReceiveT::SelectPlusNestedSelect,
         _ => SlaveReceiveT::OneSelect,
     };
-    let mut cnts = SlaveCnts::default();
+    let mut cnts_per = SlaveCnts::default();
 
-    print_and_clear_slave_cnts(20, &mut cnts);
+    print_and_clear_slave_cnts(20, &mut cnts_per);
 
     loop {
         let random_millis: u64 = {
@@ -623,21 +562,23 @@ async fn task_slave(
                             assert_eq!(
                                 val,
                                 data_from_master + DATA_FIRST_AND_INC,
-                                "[Slave] Data sequence gap detected in SpontaneousData!"
+                                "[Slave] Data sequence gap detected in ms_SpontaneousData!"
                             );
-                            cnts.spontaneous_datas += 1;
+                            cnts_per.ms_spontaneous_data_cnt_1 += 1;
                             // Update history tracking for spontaneous data
                             data_from_master = val;
                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
 
                             if data_from_master % MAX_SUM_CNT == 0 {
-                                print_and_clear_slave_cnts(20, &mut cnts);
+                                print_and_clear_slave_cnts(20, &mut cnts_per);
                             } else { }
                         }
 
                         Message::Come => {
                             if CURRENT_SELECT_MODE == SlaveReceiveT::OneSelect {
-                                slave_finally_send_data(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
+                                after_knock_come_data_send(&mut state, &ch_come_tx, &mut data_from_slave).await;
+                                cnts_per.sm_data_cnt += 1;
+                                cnts_per.ms_come_cnt += 1;
                             } else {
                                 panic!(r#"[Slave] No "spontaneous" come here"#); // Raw string avoids backslash for embedded quote
                             }
@@ -653,7 +594,7 @@ async fn task_slave(
             _ = local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
 
                 let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
-                cnts.knocks += 1;
+                cnts_per.sm_knock_cnt += 1;
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
 
@@ -668,12 +609,12 @@ async fn task_slave(
                                             assert_eq!(
                                                 val,
                                                 data_from_master + DATA_FIRST_AND_INC,
-                                                "[Slave] Data sequence gap detected in SpontaneousData!"
+                                                "[Slave] Data sequence gap detected in ms_SpontaneousData!"
                                             );
-                                            cnts.spontaneous_datas_2 += 1;
+                                            cnts_per.ms_spontaneous_data_cnt_2 += 1;
 
                                             if data_from_master % MAX_SUM_CNT == 0 {
-                                                print_and_clear_slave_cnts(20, &mut cnts);
+                                                print_and_clear_slave_cnts(20, &mut cnts_per);
                                             } else { }
                                             // Update history tracking for spontaneous data
                                             data_from_master = val;
@@ -681,7 +622,9 @@ async fn task_slave(
                                             // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
                                         Message::Come => {
-                                            slave_finally_send_data(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
+                                            after_knock_come_data_send(&mut state, &ch_come_tx, &mut data_from_slave).await;
+                                            cnts_per.sm_data_cnt += 1;
+                                            cnts_per.ms_come_cnt += 1;
                                             break 'await_come;
                                         }
                                         _ => panic!("[Slave] Come or sdata expected!")
@@ -714,6 +657,7 @@ const CHAN_SYNCH_CAP_0: usize = 0;
 /// execution handles are unwrapped upon completion.
 ///
 async fn main() {
+    print_welcome();
     code_block! {
         let (ch_knock_tx,         ch_knock_rx)         : (flume::Sender<()>,      flume::Receiver<()>)      = flume::bounded(CHAN_STREAMING_CAP_1);
         let (ch_come_or_sdata_tx, ch_come_or_sdata_rx) : (flume::Sender<Message>, flume::Receiver<Message>) = flume::bounded(CHAN_SYNCH_CAP_0);
@@ -723,7 +667,7 @@ async fn main() {
         let task_master_handle : tokio::task::JoinHandle<()> = tokio::spawn(task_master(ch_knock_rx, ch_come_or_sdata_tx, ch_come_rx));
     }
 
-    println!("\n task_master and task_slave running in parallel forever\n");
+    println!("task_master and task_slave running in parallel forever\n");
 
     // Since I already have done spawn
     task_slave_handle.await.unwrap();

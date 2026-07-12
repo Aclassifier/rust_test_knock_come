@@ -1,103 +1,14 @@
-Newest log at the bottom (obs USE_NESTED_SELECT)
-
-=== LOG(1) ===  
-   
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-   Compiling rust_test_knock_come v0.1.0 (/Users/teig/Documents/_Dokumenter/Oyvind/_PROSJEKT/GitHub/rust/workspace/rust_test_knock_come)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.68s
-     Running `target/debug/rust_test_knock_come`
-
-Knock-come running v0.0.320. Tasks started in a PAR-equivalent block
-
-REC 0   =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s
-REC 494 <       SENT 506        (>1= 3 <996)    SUM (REC 494 < SENT 506) CATCH 4        DT 34.43s
-REC 511 >       SENT 489        (>363= 25 <612) SUM (REC 1005 > SENT 995) CATCH 11      DT 36.40s
-REC 505 >       SENT 495        (>463= 40 <497) SUM (REC 1510 > SENT 1490) CATCH 11     DT 34.47s
-REC 515 >       SENT 485        (>302= 23 <675) SUM (REC 2025 > SENT 1975) CATCH 18     DT 33.85s
-REC 485 <       SENT 515        (>209= 24 <767) SUM (REC 2510 > SENT 2490) CATCH 15     DT 35.28s
-REC 484 <       SENT 516        (>13= 20 <967)  SUM (REC 2994 < SENT 3006) CATCH 13     DT 34.93s
-REC 483 <       SENT 517        (>561= 36 <403) SUM (REC 3477 < SENT 3523) CATCH 11     DT 33.47s
-REC 506 >       SENT 494        (>617= 19 <364) SUM (REC 3983 < SENT 4017) CATCH 11     DT 34.53s
-REC 512 >       SENT 488        (>938= 8 <54)   SUM (REC 4495 < SENT 4505) CATCH 4      DT 35.30s
-
-=== LOG(2) ===
-
- *  Executing task: cargo run --package rust_test_knock_come --bin rust_test_knock_come 
-
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on build directory
-   Compiling rust_test_knock_come v0.1.0 (/Users/teig/Documents/_Dokumenter/Oyvind/_PROSJEKT/GitHub/rust/workspace/rust_test_knock_come)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.80s
-     Running `target/debug/rust_test_knock_come`
-
-task_a_slave_handle and task_b_master_handle running in parallel forever
-
-Rust KNOCK-COME v0.0.900 on date 21Jun2026 20:57
+Rust KNOCK-COME v0.0.911 USE_NESTED_SELECT 0 on 12Jul2026 18:59
 Time random max 100 ms, cnt events at 1000 (Teig)
+task_master and task_slave running in parallel forever
 
-REC 0   =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s
-REC 505 >       SENT 495        (>602= 14 <384) SUM (REC 505 > SENT 495) CATCH 7        DT 35.42s
-REC 510 >       SENT 490        (>558= 29 <413) SUM (REC 1015 > SENT 985) CATCH 7       DT 35.79s
-REC 515 >       SENT 485        (>884= 33 <83)  SUM (REC 1530 > SENT 1470) CATCH 5      DT 35.92s
-REC 475 <       SENT 525        (>66= 7 <927)   SUM (REC 2005 > SENT 1995) CATCH 1      DT 35.35s
-REC 489 <       SENT 511        (>99= 25 <876)  SUM (REC 2494 < SENT 2506) CATCH 1      DT 34.54s
-REC 504 >       SENT 496        (>927= 41 <32)  SUM (REC 2998 < SENT 3002) CATCH 4      DT 34.69s
-REC 496 <       SENT 504        (>328= 30 <642) SUM (REC 3494 < SENT 3506) CATCH 7      DT 34.39s
-REC 507 >       SENT 493        (>803= 49 <148) SUM (REC 4001 > SENT 3999) CATCH 17     DT 34.70s
-REC 480 <       SENT 520        (>58= 11 <931)  SUM (REC 4481 < SENT 4519) CATCH 5      DT 34.35s
-REC 509 >       SENT 491        (>779= 31 <190) SUM (REC 4990 < SENT 5010) CATCH 12     DT 35.45s
-REC 506 >       SENT 494        (>295= 55 <650) SUM (REC 5496 < SENT 5504) CATCH 16     DT 35.27s
-REC 514 >       SENT 486        (>999= 1 <0)    SUM (REC 6010 > SENT 5990) CATCH 9      DT 36.29s
-REC 529 >       SENT 471        (>986= 8 <6)    SUM (REC 6539 > SENT 6461) CATCH 4      DT 33.65s
-REC 521 >       SENT 479        (>866= 3 <131)  SUM (REC 7060 > SENT 6940) CATCH 8      DT 35.02s
-REC 484 <       SENT 516        (>21= 14 <965)  SUM (REC 7544 > SENT 7456) CATCH 10     DT 35.83s
-REC 500 =       SENT 500        (>165= 85 <750) SUM (REC 8044 > SENT 7956) CATCH 11     DT 35.52s
-REC 465 <       SENT 535        (>3= 1 <996)    SUM (REC 8509 > SENT 8491) CATCH 5      DT 34.15s
-REC 520 >       SENT 480        (>1000= 0 <0)   SUM (REC 9029 > SENT 8971) CATCH 8      DT 35.21s
-REC 484 <       SENT 516        (>324= 58 <618) SUM (REC 9513 > SENT 9487) CATCH 5      DT 35.10s
-REC 497 <       SENT 503        (>715= 18 <267) SUM (REC 10010 > SENT 9990) CATCH 7     DT 35.67s
-REC 484 <       SENT 516        (>16= 13 <971)  SUM (REC 10494 < SENT 10506) CATCH 14   DT 35.46s
-REC 474 <       SENT 526        (>20= 9 <971)   SUM (REC 10968 < SENT 11032) CATCH 6    DT 35.35s
-REC 504 >       SENT 496        (>120= 19 <861) SUM (REC 11472 < SENT 11528) CATCH 8    DT 34.95s
-REC 486 <       SENT 514        (>141= 14 <845) SUM (REC 11958 < SENT 12042) CATCH 3    DT 35.29s
-REC 501 >       SENT 499        (>520= 46 <434) SUM (REC 12459 < SENT 12541) CATCH 10   DT 35.09s
-
-=== LOG(3) ===
-Executing task: cargo run 
-
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/rust_test_knock_come`
-
-task_slave_handle_nested_select and task_master_handle_send running in parallel forever
-
-Slave [20] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Rust KNOCK-COME v0.0.905 USE_NESTED_SELECT 1 on 08Jul2026 13:58
-Time random max 100 ms, cnt events at 1000 (Teig)
-
-Master [30] REC 0       =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Master [31] REC 496     <       SENT 504        (>169= 67 <764) SUM (REC 496 < SENT 504) catch 0        DT 34.89s knocks 496 comes 496 datas 496 spontaneous_datas 504 + spontaneous_datas_2 0 = 504
-Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 69.39s knocks 995 comes 995 datas 995 spontaneous_datas 984 + spontaneous_datas_2 16 = 1000
-Master [31] REC 501     >       SENT 499        (>538= 15 <447) SUM (REC 997 < SENT 1003) catch 0       DT 34.62s knocks 997 comes 997 datas 997 spontaneous_datas 1003 + spontaneous_datas_2 0 = 1003
-Master [32] REC 489     <       SENT 511        (>343= 17 <640) SUM (REC 1486 < SENT 1514) catch 0      DT 34.48s knocks 1486 comes 1486 datas 1486 spontaneous_datas 1514 + spontaneous_datas_2 0 = 1514
-Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 69.96s knocks 1983 comes 1983 datas 1983 spontaneous_datas 1963 + spontaneous_datas_2 37 = 2000
-Master [32] REC 504     >       SENT 496        (>979= 5 <16)   SUM (REC 1990 < SENT 2010) catch 0      DT 35.95s knocks 1990 comes 1990 datas 1990 spontaneous_datas 2010 + spontaneous_datas_2 0 = 2010
-Master [31] REC 467     <       SENT 533        (>22= 2 <976)   SUM (REC 2457 < SENT 2543) catch 0      DT 34.00s knocks 2457 comes 2457 datas 2457 spontaneous_datas 2543 + spontaneous_datas_2 0 = 2543
-Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 65.95s knocks 2895 comes 2895 datas 2895 spontaneous_datas 2948 + spontaneous_datas_2 52 = 3000
-Master [32] REC 485     <       SENT 515        (>36= 21 <943)  SUM (REC 2942 < SENT 3058) catch 0      DT 34.65s knocks 2942 comes 2942 datas 2942 spontaneous_datas 3058 + spontaneous_datas_2 0 = 3058
-Slave [21] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 68.36s knocks 3891 comes 3891 datas 3891 spontaneous_datas 3933 + spontaneous_datas_2 67 = 4000
-Master [32] REC 486     <       SENT 514        (>281= 9 <710)  SUM (REC 3947 < SENT 4053) catch 0      DT 34.22s knocks 3947 comes 3947 datas 3947 spontaneous_datas 4053 + spontaneous_datas_2 0 = 4053
-
-=== Log(4) ===
- task_slave_handle and ntask_master_handle_try_send running in parallel forever
-
-Rust KNOCK-COME v0.0.906 USE_NESTED_SELECT 0 on 08Jul2026 17:34
-Time random max 100 ms, cnt events at 1000 (Teig)
-
-Master [0] REC 0        =       SENT 0  (>0= 0 <0)      SUM (REC 0 = SENT 0) catch 0    DT 0.00s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Master [2] REC 975      <       SENT 999        (>63= 8 <1903)  SUM (REC 975 < SENT 999) CATCH 12       DT 68.82s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Master [1] REC 25       >       SENT 22 (>7= 14 <26)    SUM (REC 1000 < SENT 1021) catch 0      DT 1.78s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Master [1] REC 1000     >       SENT 904        (>1827= 15 <62) SUM (REC 2000 > SENT 1925) CATCH 8      DT 65.39s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
-Master [2] REC 84       >       SENT 74 (>75= 14 <69)   SUM (REC 2084 > SENT 1999) CATCH 2      DT 5.73s knocks 0 comes 0 datas 0 spontaneous_datas 0 + spontaneous_datas_2 0 = 0
+S @20   KNOCK 0 COME 0  SENT 0  SDATA 0+0=0                     DT 0.00s
+M @0    KNOCK 0 COME 0  DATA 0  SDATA 0         MASTER-EQL      DT 0.00s
+M @2    KNOCK 965       COME 965        DATA 965        SDATA 1000              MASTER-DEC      DT 67.04s
+S @20   KNOCK 965       COME 965        SENT 965        SDATA 1000+0=1000                       DT 67.04s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 940               MASTER-INC      DT 67.36s
+S @20   KNOCK 1066      COME 1066       SENT 1066       SDATA 1000+0=1000                       DT 71.80s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 960               MASTER-INC      DT 68.95s
+S @20   KNOCK 1045      COME 1045       SENT 1045       SDATA 1000+0=1000                       DT 71.62s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 976               MASTER-INC      DT 69.32s
+S @20   KNOCK 1008      COME 1008       SENT 1008       SDATA 1000+0=1000                       DT 70.97s
