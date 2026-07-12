@@ -10,6 +10,7 @@
 //
 const VERSION: &str = "0.0.910";
 //
+// 12Jul2026 0.0.910 Layout. slave_finally_send_data new name
 // 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
 // 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
 // 09Jul2026 0.0.908 Layout
@@ -62,6 +63,8 @@ const USE_NESTED_SELECT: u32 = 0; // 0 or 1
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 100;
 const MAX_SUM_CNT: u32 = 1000;
+
+macro_rules! code_block { ($($tokens:tt)*) => { $($tokens)* }; } // Avoids #[rustfmt::skip], no explicit export from block needed
 
 // Between task_master and task_slave, channels set up in main
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -537,7 +540,7 @@ async fn task_master(
     }
 }
 
-/// handle_slave_come
+/// slave_finally_send_data
 ///
 /// # Arguments
 ///
@@ -546,7 +549,7 @@ async fn task_master(
 /// * `data_from_slave` - Mutable reference to the payload data counter/value sequence.
 /// * `cnts` - Mutable reference to the metrics tracking struct to update counters.
 ///
-async fn handle_slave_come(
+async fn slave_finally_send_data(
     state: &mut KnockComeState,
     ch_come_tx: &flume::Sender<Message>,
     data_from_slave: &mut ExchangedDataT,
@@ -634,7 +637,7 @@ async fn task_slave(
 
                         Message::Come => {
                             if CURRENT_SELECT_MODE == SlaveReceiveT::OneSelect {
-                                handle_slave_come(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
+                                slave_finally_send_data(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
                             } else {
                                 panic!(r#"[Slave] No "spontaneous" come here"#); // Raw string avoids backslash for embedded quote
                             }
@@ -678,7 +681,7 @@ async fn task_slave(
                                             // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
                                         Message::Come => {
-                                            handle_slave_come(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
+                                            slave_finally_send_data(&mut state, &ch_come_tx, &mut data_from_slave, &mut cnts).await;
                                             break 'await_come;
                                         }
                                         _ => panic!("[Slave] Come or sdata expected!")
@@ -694,8 +697,6 @@ async fn task_slave(
         }
     }
 }
-
-macro_rules! code_block { ($($tokens:tt)*) => { $($tokens)* }; } // Avoids #[rustfmt::skip], no export from block needed
 
 const CHAN_STREAMING_CAP_1: usize = 1;
 const CHAN_SYNCH_CAP_0: usize = 0;
