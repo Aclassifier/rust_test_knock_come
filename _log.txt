@@ -1,10 +1,56 @@
-Rust KNOCK-COME v0.0.912 USE_NESTED_SELECT 0 on 12Jul2026 21:32
-Time random max 100 ms, cnt events at 1000 (Teig)
+Rust KNOCK-COME v0.0.913 USE_NESTED_SELECT 0 on 13Jul2026 10:09
+Time random max 99 ms, cnt events at 1000 (Teig)
 task_master and task_slave running in parallel forever
 
 S @20   KNOCK 0 COME 0  SENT 0  SDATA 0+0=0                     DT 0.00s
 M @0    KNOCK 0 COME 0  DATA 0  SDATA 0         MASTER-EQL      DT 0.00s
-M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 963               MASTER-INC      DT 51.35s
-S @20   KNOCK 1037      COME 1037       SENT 1037       SDATA 1000+0=1000                       DT 53.44s
-M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 996               MASTER-INC      DT 51.35s
-S @20   KNOCK 1010      COME 1010       SENT 1010       SDATA 1000+0=1000                       DT 51.66s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 993               MASTER-INC      DT 49.27s
+S @20   KNOCK 1008      COME 1008       SENT 1008       SDATA 1000+0=1000                       DT 49.64s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 987               MASTER-INC      DT 48.90s
+S @20   KNOCK 1006      COME 1006       SENT 1006       SDATA 1000+0=1000                       DT 49.40s
+M @2    KNOCK 999       COME 999        DATA 999        SDATA 1000              MASTER-DEC      DT 49.38s
+S @20   KNOCK 1004      COME 1004       SENT 1004       SDATA 1000+0=1000                       DT 49.50s
+M @2    KNOCK 988       COME 988        DATA 988        SDATA 1000              MASTER-DEC      DT 49.26s
+S @20   KNOCK 994       COME 994        SENT 994        SDATA 1000+0=1000                       DT 49.48s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 989               MASTER-INC      DT 49.34s
+S @20   KNOCK 1009      COME 1009       SENT 1009       SDATA 1000+0=1000                       DT 49.93s
+M @2    KNOCK 986       COME 986        DATA 986        SDATA 1000              MASTER-DEC      DT 48.72s
+S @20   KNOCK 989       COME 989        SENT 989        SDATA 1000+0=1000                       DT 48.53s
+M @2    KNOCK 967       COME 967        DATA 967        SDATA 1000              MASTER-DEC      DT 49.31s
+S @20   KNOCK 961       COME 961        SENT 961        SDATA 1000+0=1000                       DT 49.30s
+M @2    KNOCK 976       COME 976        DATA 976        SDATA 1000              MASTER-DEC      DT 48.23s
+S @20   KNOCK 974       COME 974        SENT 974        SDATA 1000+0=1000                       DT 48.27s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 970               MASTER-INC      DT 49.91s
+S @20   KNOCK 1042      COME 1042       SENT 1042       SDATA 1000+0=1000                       DT 51.58s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 984               MASTER-INC      DT 49.47s
+S @20   KNOCK 1005      COME 1005       SENT 1005       SDATA 1000+0=1000                       DT 49.68s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 995               MASTER-INC      DT 49.72s
+S @20   KNOCK 1014      COME 1014       SENT 1014       SDATA 1000+0=1000                       DT 50.64s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 971               MASTER-INC      DT 49.01s
+S @20   KNOCK 1019      COME 1019       SENT 1019       SDATA 1000+0=1000                       DT 50.45s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 986               MASTER-INC      DT 49.57s
+S @20   KNOCK 1018      COME 1018       SENT 1018       SDATA 1000+0=1000                       DT 49.94s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 993               MASTER-INC      DT 48.46s
+S @20   KNOCK 1001      COME 1001       SENT 1001       SDATA 1000+0=1000                       DT 48.16s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 975               MASTER-INC      DT 47.27s
+S @20   KNOCK 1015      COME 1015       SENT 1015       SDATA 1000+0=1000                       DT 48.71s
+M @2    KNOCK 987       COME 987        DATA 987        SDATA 1000              MASTER-DEC      DT 47.85s
+S @20   KNOCK 985       COME 985        SENT 985        SDATA 1000+0=1000                       DT 47.97s
+M @2    KNOCK 993       COME 993        DATA 993        SDATA 1000              MASTER-DEC      DT 49.05s
+S @20   KNOCK 1007      COME 1007       SENT 1007       SDATA 1000+0=1000                       DT 49.13s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 999               MASTER-INC      DT 47.93s
+S @20   KNOCK 998       COME 998        SENT 998        SDATA 1000+0=1000                       DT 48.04s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 999               MASTER-INC      DT 50.53s
+S @20   KNOCK 1008      COME 1008       SENT 1008       SDATA 1000+0=1000                       DT 50.94s
+M @2    KNOCK 996       COME 996        DATA 996        SDATA 1000              MASTER-DEC      DT 50.66s
+S @20   KNOCK 1010      COME 1010       SENT 1010       SDATA 1000+0=1000                       DT 51.27s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 953               MASTER-INC      DT 48.85s
+S @20   KNOCK 1037      COME 1037       SENT 1037       SDATA 1000+0=1000                       DT 50.49s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 960               MASTER-INC      DT 48.10s
+S @20   KNOCK 1024      COME 1024       SENT 1024       SDATA 1000+0=1000                       DT 49.35s
+M @2    KNOCK 966       COME 966        DATA 966        SDATA 1000              MASTER-DEC      DT 48.32s
+S @20   KNOCK 987       COME 987        SENT 987        SDATA 1000+0=1000                       DT 48.95s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 960               MASTER-INC      DT 49.04s
+S @20   KNOCK 1038      COME 1038       SENT 1038       SDATA 1000+0=1000                       DT 51.18s
+M @1    KNOCK 1000      COME 1000       DATA 1000       SDATA 976               MASTER-INC      DT 49.93s
+S @20   KNOCK 1006      COME 1006       SENT 1006       SDATA 1000+0=1000                       DT 51.18s

@@ -8,8 +8,10 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.912";
-//
+const VERSION: &str = "0.0.913";
+// 13Jul2026 0.0.913 local_timer now is a "reptimer" using last .deadline rather than Instant::now() which for every timeout included
+//                   the processing time to get there. See _log.txt, which seems to get averages close to the theoretical sum
+//                   [0..99] ms = (99*100) / 2 = 4950 and average divide by 100 = 49.5s
 // 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to RANDOM_VAL_MAX_MS 99
 //                   Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
 // 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
@@ -404,6 +406,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
     };
 
     // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
+    // See https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html
     let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
     tokio::pin!(local_timer);
 
@@ -499,7 +502,9 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
                     cnts_per.ms_spontaneous_data_err_cnt += 1;
                 }
 
-                let next_timeout = tokio::time::Instant::now() + get_random_duration();
+                // Calculate the next timeout based on the PREVIOUS deadline to prevent timer drift.
+                // This ensures executing logic overhead does not delay subsequent intervals.
+                let next_timeout = local_timer.deadline() + get_random_duration();
                 local_timer.as_mut().reset(next_timeout);
             }
         }
@@ -555,6 +560,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
     };
 
     // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
+    // See https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html
     let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
     tokio::pin!(local_timer);
 
@@ -644,7 +650,9 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                         }
                     } // end 'await_come: loop
                 }
-                let next_timeout = tokio::time::Instant::now() + get_random_duration();
+                // Calculate the next timeout based on the PREVIOUS deadline to prevent timer drift.
+                // This ensures executing logic overhead does not delay subsequent intervals.
+                let next_timeout = local_timer.deadline() + get_random_duration();
                 local_timer.as_mut().reset(next_timeout);
             }
         }
