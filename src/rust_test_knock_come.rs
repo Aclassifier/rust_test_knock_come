@@ -1,3 +1,56 @@
+//! VERSION HISTORY
+//! =========================================================================================
+//! 13Jul2026 0.0.915 Also printing out cnts_per.ms_spontaneous_data_err_cnt on the master side (for USE_NESTED_SELECT 0)
+//!                   CURRENT_SEND_MODE was wrong! But mixing USE_NESTED_SELECT 0 or 1 on master is or seem to have been ok
+//!                   print_and_clear_slave_cnts caller was 20 all over!
+//!                   Full control of coloumn printing, see COL1_WIDTH etc.
+//! 13Jul2026 0.0.914 USE_NESTED_SELECT 1, see _log.txt
+//! 13Jul2026 0.0.913 local_timer now is a "reptimer" using last .deadline rather than Instant::now() which for every timeout included
+//!                   the processing time to get there. See _log.txt, which seems to get averages close to the theoretical sum
+//!                   [0..99] ms = (99*100) / 2 = 4950 and average divide by 100 = 49.5s
+//! 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to RANDOM_VAL_MAX_MS 99
+//!                   Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
+//! 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
+//! 12Jul2026 0.0.910 Layout. after_knock_come_data_send new name
+//! 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
+//! 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
+//! 09Jul2026 0.0.908 Layout
+//! 09Jul2026 0.0.908 Now only two tasks, with internals controleld by USE_NESTED_SELECT 0 or 1. Come in slave now a function.
+//!                   Proper ///-headers added. Not tested, no logs!
+//! 08Jul2026 0.0.907 The two master tasks now is only one, where send come is controlled by USE_NESTED_SELECT. In work, no logs
+//! 08Jul2026 0.0.906 Now statistics and print-criteria er "wild" withe respect to the two. Next version will rectify this
+//!                   USE_NESTED_SELECT 0 has always worked (but compare logs with USE_NESTED_SELECT 1 in log(4) in _log.txt)
+//! 08Jul2026 0.0.905 USE_NESTED_SELECT 1 seems to work (see log(3) in _log.txt)
+//! 05Jul2026 0.0.904 "/// comments used above tasks
+//! 05Jul2026 0.0.904 Names of chans in main
+//! 05Jul2026 0.0.903 Lots of new names! Approaching USE_NESTED_SELECT 1 usage
+//! 05Jul2026 0.0.902 "Format on save" in VS Code set. Some new comments
+//! 05Jul2026 0.0.902 Main file main.rs -> rust_test_knock_come with main function inside (see Cargo.toml)
+//! 05Jul2026 0.0.901 Added USE_NESTED_SELECT, but 0 or 1 equal for this version
+//! 04Jul2026 0.0.900 Same version but file knock_come_redraw.rs added as a copy-from file
+//! 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
+//! 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
+//!                   Solution: GitHub allows clickable urls only in README.md, not in code,
+//!                   but they are clickable in VS Code
+//! 21Jun2026 0.0.900 print_welcome like in XC. Using chrono. Plus some comments on the
+//!                   "catch" part of try_send in task_b_master
+//! 21Jun2026 0.0.320 ms_spontaneous_data_err_cnt is new. Typically between 1 and 18 (obs random timeouts)
+//! 20Jun2026 0.0.312 Name of channels changed, and some variables
+//! 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
+//! 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
+//!                   ComeData removed because it was simply wrong, since Come always has no data
+//! 18Jun2026 0.0.210 New heading above (2)
+//! 18Jun2026 0.0.210 println_iff is new, to control printing
+//! 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
+//!                   message type more generic so that they don't have the same names as task variables
+//! 17Jun2026 0.0.101 More comments
+//! 17Jun2026 0.0.100 More verification etc. Runs
+//! 16Jun2026 0.0.050 Final functional version using Tokio biased select to match XC hardware priority
+//! 16Jun2026 0.0.040 Integrated idiomatic Rust enums with data payload and state variables
+//! 16Jun2026 0.0.030 Knock channel converted to a pure signal channel using unit type ()
+//! 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
+//! 15Jun2026 0.0.010 First version, runs but no knock-come
+
 // =============================================================================================
 // THE KNOCK-COME DEADLOCK FREE PATTERN
 // Øyvind Teig, Trondheim, Norway
@@ -6,68 +59,41 @@
 //     https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
 // GitHub:
 //     https://github.com/Aclassifier/rust_test_knock_come
-// VERSIONS / COMMITS
-//
-const VERSION: &str = "0.0.914";
-// 13Jul2026 0.0.914 USE_NESTED_SELECT 1, see _log.txt
-// 13Jul2026 0.0.913 local_timer now is a "reptimer" using last .deadline rather than Instant::now() which for every timeout included
-//                   the processing time to get there. See _log.txt, which seems to get averages close to the theoretical sum
-//                   [0..99] ms = (99*100) / 2 = 4950 and average divide by 100 = 49.5s
-// 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to RANDOM_VAL_MAX_MS 99
-//                   Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
-// 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
-// 12Jul2026 0.0.910 Layout. after_knock_come_data_send new name
-// 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
-// 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
-// 09Jul2026 0.0.908 Layout
-// 09Jul2026 0.0.908 Now only two tasks, with internals controleld by USE_NESTED_SELECT 0 or 1. Come in slave now a function.
-//                   Proper ///-headers added. Not tested, no logs!
-// 08Jul2026 0.0.907 The two master tasks now is only one, where send come is controlled by USE_NESTED_SELECT. In work, no logs
-// 08Jul2026 0.0.906 Now statistics and print-criteria er "wild" withe respect to the two. Next version will rectify this
-//                   USE_NESTED_SELECT 0 has always worked (but compare logs with USE_NESTED_SELECT 1 in log(4) in _log.txt)
-// 08Jul2026 0.0.905 USE_NESTED_SELECT 1 seems to work (see log(3) in _log.txt)
-// 05Jul2026 0.0.904 "/// comments used above tasks
-// 05Jul2026 0.0.904 Names of chans in main
-// 05Jul2026 0.0.903 Lots of new names! Approaching USE_NESTED_SELECT 1 usage
-// 05Jul2026 0.0.902 "Format on save" in VS Code set. Some new comments
-// 05Jul2026 0.0.902 Main file main.rs -> rust_test_knock_come with main function inside (see Cargo.toml)
-// 05Jul2026 0.0.901 Added USE_NESTED_SELECT, but 0 or 1 equal for this version
-// 04Jul2026 0.0.900 Same version but file knock_come_redraw.rs added as a copy-from file
-// 22Jun2026 0.0.900 Some left curly brackets moved to start of line to use VS Code folding
-// 21Jun2026 0.0.900 Testing clickable URLs (4) as starting with // https:..
-//                   Solution: GitHub allows clickable urls only in README.md, not in code,
-//                   but they are clickable in VS Code
-// 21Jun2026 0.0.900 print_welcome like in XC. Using chrono. Plus some comments on the
-//                   "catch" part of try_send in task_b_master
-// 21Jun2026 0.0.320 ms_spontaneous_data_err_cnt is new. Typically between 1 and 18 (obs random timeouts)
-// 20Jun2026 0.0.312 Name of channels changed, and some variables
-// 19Jun2026 0.0.310 Delta time printed out for print of CountersOnly
-// 19Jun2026 0.0.300 Statistics of fairness printed out with a correct print_and_clear_debug_cnts
-//                   ComeData removed because it was simply wrong, since Come always has no data
-// 18Jun2026 0.0.210 New heading above (2)
-// 18Jun2026 0.0.210 println_iff is new, to control printing
-// 18Jun2026 0.0.200 Add strict data sequence verification via asserts and post-send increments
-//                   message type more generic so that they don't have the same names as task variables
-// 17Jun2026 0.0.101 More comments
-// 17Jun2026 0.0.100 More verification etc. Runs
-// 16Jun2026 0.0.050 Final functional version using Tokio biased select to match XC hardware priority
-// 16Jun2026 0.0.040 Integrated idiomatic Rust enums with data payload and state variables
-// 16Jun2026 0.0.030 Knock channel converted to a pure signal channel using unit type ()
-// 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
-// 15Jun2026 0.0.010 First version, runs but no knock-come
-// =============================================================================================
 
 use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
+const VERSION: &str = "0.0.915";
+// =============================================================================================
+
+// =============================================================================================
 // GLOBALS
 // =============================================================================================
-//
-const USE_NESTED_SELECT: u32 = 1; // 0 or 1
-const RANDOM_VAL_MIN_MS: u64 = 0;
-const RANDOM_VAL_MAX_MS: u64 = 99;
-const MAX_SUM_CNT: u32 = 1000;
+
+#[rustfmt::skip]
+mod config {
+    pub const USE_NESTED_SELECT: u32 =    1; // 0 or 1
+    pub const RANDOM_VAL_MIN_MS: u64 =    0;
+    pub const RANDOM_VAL_MAX_MS: u64 =   99;
+    pub const MAX_SUM_CNT:       u64 = 1000;
+}
+use config::*;
+
+// Coloumn layout common for print_and_clear_master_cnts and print_and_clear_slave_cnts
+//  COL1        COL2      COL3      COL4       COL5         COL6          COL7
+//   -1-        -4--      -4--      -4--       -12--------- -10-------    -5---    (USE_NESTED_SELECT)
+// S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 901+0=901               DT 48.63s   (0)
+// M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 901/e29      MASTER-INC DT 48.63s   (0)
+// M @2   KNOCK  997 COME  997 DATA  997 SDATA 1000/e0      MASTER-DEC DT 49.73s   (1)
+// S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 989+16=1005             DT 49.93s   (1)
+const COL1_WIDTH: usize = 3;
+const COL2_WIDTH: usize = 4;
+const COL3_WIDTH: usize = 4;
+const COL4_WIDTH: usize = 4;
+const COL5_WIDTH: usize = 12;
+const COL6_WIDTH: usize = 10;
+const COL7_WIDTH: usize = 5;
 
 macro_rules! code_block { ($($tokens:tt)*) => { $($tokens)* }; } // Avoids #[rustfmt::skip], no explicit export from block needed
 
@@ -131,22 +157,6 @@ use std::time::Instant; // Put this with the other imports at the top of src/mai
 //     ms_ from Master to Slave
 //     sm_ from Slave to Master
 // =============================================================================================
-#[derive(Debug, Clone, Copy)] // Removed Default from here!
-#[allow(dead_code)]
-struct MasterCntsMon {
-    // Mon = monotonously counters, as mon_ below:
-    ms_spontaneous_data_cnt_mon: u32,
-    sm_data_cnt_mon: u32,
-}
-
-impl Default for MasterCntsMon {
-    fn default() -> Self {
-        Self {
-            ms_spontaneous_data_cnt_mon: 0,
-            sm_data_cnt_mon: 0,
-        }
-    }
-}
 
 struct MasterCntsAndTimerPeriodic {
     sm_knock_cnt: u64,
@@ -214,39 +224,35 @@ fn print_welcome() {
     );
 }
 
-fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPeriodic, cnts_mon: &mut MasterCntsMon) {
+fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPeriodic) {
     // Calculate delta seconds since the last printout
     let now = Instant::now();
     let delta_secs = now.duration_since(cnts_per.print_time_prev).as_secs_f32();
 
     let current_filling = if cnts_per.sm_data_cnt > cnts_per.ms_spontaneous_data_cnt {
-        "INC"
+        "MASTER-INC"
     } else if cnts_per.sm_data_cnt < cnts_per.ms_spontaneous_data_cnt {
-        "DEC"
+        "MASTER-DEC"
     } else {
-        "EQL"
+        "MASTER-EQL"
     };
 
-    let _sum_sign = if cnts_mon.sm_data_cnt_mon > cnts_mon.ms_spontaneous_data_cnt_mon {
-        ">"
-    } else if cnts_mon.sm_data_cnt_mon < cnts_mon.ms_spontaneous_data_cnt_mon {
-        "<"
-    } else {
-        "="
-    };
+    #[rustfmt::skip] // Want block layout, not compact
+    let spontaneous_list = format!(
+        "{}/e{}", 
+        cnts_per.ms_spontaneous_data_cnt,
+        cnts_per.ms_spontaneous_data_err_cnt);
 
-    let _catch_uppercase: &str = if cnts_per.ms_spontaneous_data_err_cnt > 0 { "CATCH" } else { "catch" };
-    // Prints the metrics with delta seconds appended to the start or end of the log
     #[rustfmt::skip] // Want block layout, not compact
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "M @{}\tKNOCK {}\tCOME {}\tDATA {}\tSDATA {}\t\tMASTER-{}\tDT {:.2}s",
+            "M @{:<COL1_WIDTH$} KNOCK {:>COL2_WIDTH$} COME {:>COL3_WIDTH$} DATA {:>COL4_WIDTH$} SDATA {:<COL5_WIDTH$} {:>COL6_WIDTH$} DT {:>COL7_WIDTH$.2}s",
             caller,
             cnts_per.sm_knock_cnt,
             cnts_per.ms_come_cnt,
             cnts_per.sm_data_cnt,
-            cnts_per.ms_spontaneous_data_cnt,
+            spontaneous_list,
             current_filling,
             delta_secs,
         ),
@@ -260,19 +266,25 @@ fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     let now = Instant::now();
     let delta_secs = now.duration_since(cnts_per.print_time_prev).as_secs_f32();
 
-    // Prints the metrics with delta seconds appended to the start or end of the log
-    // Block layout kept
+    #[rustfmt::skip] // Want block layout, not compact
+    let spontaneous_list = format!(
+        "{}+{}={}",
+        cnts_per.ms_spontaneous_data_cnt_1,
+        cnts_per.ms_spontaneous_data_cnt_2,
+        cnts_per.ms_spontaneous_data_cnt_1 + cnts_per.ms_spontaneous_data_cnt_2,
+    );
+
+    #[rustfmt::skip] // Want block layout, not compact
     println_iff(
         LogLevel::CountersOnly,
         format_args!(
-            "S @{}\tKNOCK {}\tCOME {}\tSENT {}\tSDATA {}+{}={}\t\t\tDT {:.2}s",
-            caller,
-            cnts_per.sm_knock_cnt,
-            cnts_per.ms_come_cnt,
-            cnts_per.sm_data_cnt,
-            cnts_per.ms_spontaneous_data_cnt_1,
-            cnts_per.ms_spontaneous_data_cnt_2,
-            cnts_per.ms_spontaneous_data_cnt_1 + cnts_per.ms_spontaneous_data_cnt_2,
+            "S @{:<COL1_WIDTH$} KNOCK {:>COL2_WIDTH$} COME {:>COL3_WIDTH$} SENT {:>COL4_WIDTH$} SDATA {:<COL5_WIDTH$} {:>COL6_WIDTH$} DT {:>COL7_WIDTH$.2}s",
+            caller, 
+            cnts_per.sm_knock_cnt, 
+            cnts_per.ms_come_cnt, 
+            cnts_per.sm_data_cnt, 
+            spontaneous_list, 
+            "",
             delta_secs,
         ),
     );
@@ -389,16 +401,15 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
     let mut data_from_master: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_slave: ExchangedDataT = 0; // So that the first received is DATA_FIRST_AND_INC more 
     let mut cnts_per = MasterCntsAndTimerPeriodic::default();
-    let mut cnts_mon = MasterCntsMon::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
     const CURRENT_SEND_MODE: MasterComeSendT = match USE_NESTED_SELECT {
-        0 => MasterComeSendT::SendAsynchAwait,
-        1 => MasterComeSendT::TrySend,
-        _ => MasterComeSendT::SendAsynchAwait,
+        0 => MasterComeSendT::TrySend,         // 0.0.915 changed, was SendAsynchAwait
+        1 => MasterComeSendT::SendAsynchAwait, // 0.0.915 changed, was TrySend
+        _ => MasterComeSendT::TrySend,         // 0.0.915 changed, was SendAsynchAwait
     };
 
-    print_and_clear_master_cnts(0, &mut cnts_per, &mut cnts_mon);
+    print_and_clear_master_cnts(0, &mut cnts_per);
 
     // Helper closure/function to generate a new random duration
     let get_random_duration = || {
@@ -452,12 +463,11 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
                             println_iff(LogLevel::All, format_args!("[Master] Handshake complete! Captured SlaveData: {}", data_from_slave));
                             // Update statistics tracking
                             cnts_per.sm_data_cnt += 1;
-                            cnts_mon.sm_data_cnt_mon += 1;
                             // Calculate and evaluate protocol fairness
                             // Update fairness metrics and check if it's time to print and reset interval counters
                             update_master_view_fairness_cnts(&mut cnts_per);
-                            if cnts_per.sm_data_cnt == MAX_SUM_CNT {
-                                print_and_clear_master_cnts(1, &mut cnts_per, &mut cnts_mon);
+                            if cnts_per.sm_data_cnt == MAX_SUM_CNT as u32 {
+                                print_and_clear_master_cnts(1, &mut cnts_per);
                             } else { }
                         }
                         _ => {
@@ -494,10 +504,9 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
 
                     // Update statistics tracking
                     cnts_per.ms_spontaneous_data_cnt += 1;
-                    cnts_mon.ms_spontaneous_data_cnt_mon += 1;
                     update_master_view_fairness_cnts(&mut cnts_per);
-                    if cnts_per.ms_spontaneous_data_cnt == MAX_SUM_CNT {
-                        print_and_clear_master_cnts(2, &mut cnts_per, &mut cnts_mon);
+                    if cnts_per.ms_spontaneous_data_cnt == MAX_SUM_CNT as u32 {
+                        print_and_clear_master_cnts(2, &mut cnts_per);
                     } else { }
                 } else {
                     cnts_per.ms_spontaneous_data_err_cnt += 1;
@@ -530,7 +539,7 @@ async fn after_knock_come_data_send(state: &mut KnockComeState, ch_come_tx: &flu
 
     *data_from_slave += DATA_FIRST_AND_INC;
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveSentDataNowReady);
-}
+} // after_knock_come_data_send
 
 /// task_slave
 ///
@@ -583,10 +592,6 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                             data_from_master = val;
                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
                             cnts_per.ms_spontaneous_data_cnt_1 += 1;
-
-                            if data_from_master % MAX_SUM_CNT == 0 {
-                                print_and_clear_slave_cnts(20, &mut cnts_per);
-                            } else { }
                         }
 
                         Message::Come => {
@@ -613,6 +618,13 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
 
+                // Since SpontaneousData for USE_NESTED_SELECT 0 (with .try_send in task_master) may be "less than 1000" it's plain
+                // wrong to count ms_spontaneous_data_cnt_1 or ms_spontaneous_data_cnt_2 for printing:
+                //
+                if cnts_per.sm_knock_cnt % MAX_SUM_CNT == 0 {
+                    print_and_clear_slave_cnts(21, &mut cnts_per);
+                } else { }
+
                 if CURRENT_SELECT_MODE == SlaveReceiveT::SelectPlusNestedSelect {
                     'await_come: loop {
                         tokio::select! {
@@ -629,10 +641,6 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                             data_from_master = val;
                                             cnts_per.ms_spontaneous_data_cnt_2 += 1;
                                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
-
-                                            if data_from_master % MAX_SUM_CNT == 0 {
-                                                print_and_clear_slave_cnts(20, &mut cnts_per);
-                                            } else { }
 
                                             // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
@@ -658,7 +666,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
             }
         }
     }
-}
+} // asynch task slave
 
 const CHAN_STREAMING_CAP_1: usize = 1;
 const CHAN_SYNCH_CAP_0: usize = 0;
@@ -686,7 +694,7 @@ async fn main() {
         let task_master_handle : tokio::task::JoinHandle<()> = tokio::spawn(task_master(ch_knock_rx, ch_come_or_sdata_tx, ch_come_rx));
     }
 
-    println!("task_master and task_slave running in parallel forever\n");
+    println!("task_master and task_slave running in parallel forever\n//");
 
     // Since I already have done spawn
     task_slave_handle.await.unwrap();
