@@ -8,7 +8,8 @@
 //     https://github.com/Aclassifier/rust_test_knock_come
 // VERSIONS / COMMITS
 //
-const VERSION: &str = "0.0.913";
+const VERSION: &str = "0.0.914";
+// 13Jul2026 0.0.914 USE_NESTED_SELECT 1, see _log.txt
 // 13Jul2026 0.0.913 local_timer now is a "reptimer" using last .deadline rather than Instant::now() which for every timeout included
 //                   the processing time to get there. See _log.txt, which seems to get averages close to the theoretical sum
 //                   [0..99] ms = (99*100) / 2 = 4950 and average divide by 100 = 49.5s
@@ -63,7 +64,7 @@ use std::time::Duration;
 // GLOBALS
 // =============================================================================================
 //
-const USE_NESTED_SELECT: u32 = 0; // 0 or 1
+const USE_NESTED_SELECT: u32 = 1; // 0 or 1
 const RANDOM_VAL_MIN_MS: u64 = 0;
 const RANDOM_VAL_MAX_MS: u64 = 99;
 const MAX_SUM_CNT: u32 = 1000;
