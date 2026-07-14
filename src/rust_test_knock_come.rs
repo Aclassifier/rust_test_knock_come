@@ -1,5 +1,7 @@
 //! VERSION HISTORY
-//! =========================================================================================
+//! Thanks to helpers Google AI and Claude. Thanks for knowing much more then me, and for some times letting me ask questions with corrected updates
+//! ================================================================================================================================================
+//! 14Jul2026 0.0.916 USE_NESTED_SELECT -> CURRENT_SEMANTICS. But does MasterForceSendSlaveSelectDeadlocks really deadlock?
 //! 13Jul2026 0.0.915 Also printing out cnts_per.ms_spontaneous_data_err_cnt on the master side (for USE_NESTED_SELECT 0)
 //!                   CURRENT_SEND_MODE was wrong! But mixing USE_NESTED_SELECT 0 or 1 on master is or seem to have been ok
 //!                   print_and_clear_slave_cnts caller was 20 all over!
@@ -8,9 +10,10 @@
 //! 13Jul2026 0.0.913 local_timer now is a "reptimer" using last .deadline rather than Instant::now() which for every timeout included
 //!                   the processing time to get there. See _log.txt, which seems to get averages close to the theoretical sum
 //!                   [0..99] ms = (99*100) / 2 = 4950 and average divide by 100 = 49.5s
-//! 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to RANDOM_VAL_MAX_MS 99
-//!                   Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
-//! 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be. rustfmt.toml new
+//! 12Jul2026 0.0.912 local_timer was updated on each round. It should only be updated when the timer has trigged. It should also go from 0 to
+//!                   RANDOM_VAL_MAX_MS 99. Changed in master and slave. USE_NESTED_SELECT 0 runs (not tested 1 yet)
+//! 12Jul2026 0.0.911 So much change with logging! USE_NESTED_SELECT 0 runs (not tested 1 yet). DT in _log.txt double of what it should be.
+//!                   rustfmt.toml new
 //! 12Jul2026 0.0.910 Layout. after_knock_come_data_send new name
 //! 09Jul2026 0.0.910 debug printing now done on individual print functions with individual strucs for slave and master. Not tested, no logs
 //! 09Jul2026 0.0.909 Copy added to Message, now #[derive(Clone, Copy, Debug, PartialEq)] (for speed)
@@ -71,9 +74,18 @@ const VERSION: &str = "0.0.915";
 // GLOBALS
 // =============================================================================================
 
+#[allow(dead_code)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum TaskSemantics {
+    MasterTrySendSlaveSelect,            // Tested and works
+    MasterSendSlaveNestedSelect,         // Tested and works
+    MasterForceSendSlaveSelectDeadlocks, // Hmmm. does it really deadlock?
+}
+
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelectDeadlocks;
+
 #[rustfmt::skip]
 mod config {
-    pub const USE_NESTED_SELECT: u32 =    1; // 0 or 1
     pub const RANDOM_VAL_MIN_MS: u64 =    0;
     pub const RANDOM_VAL_MAX_MS: u64 =   99;
     pub const MAX_SUM_CNT:       u64 = 1000;
@@ -213,14 +225,14 @@ fn print_welcome() {
     // Fetches the current local time from your iMac during startup
     let local_time = chrono::Local::now();
 
-    // Formats the date to exactly match your XC style (e.g., 21Jun2026)
+    // Formats the date to exactly match the XC style (like "21Jun2026")
     let compile_date = local_time.format("%d%b%Y").to_string();
     let compile_time = local_time.format("%H:%M").to_string();
 
     println!(
-        "\nRust KNOCK-COME v{} USE_NESTED_SELECT {} on {} {}\n\
-         Time random max {} ms, cnt events at {} (Teig)",
-        VERSION, USE_NESTED_SELECT, compile_date, compile_time, RANDOM_VAL_MAX_MS, MAX_SUM_CNT
+        "\nRust KNOCK-COME v{} Mode: {:?} on {} {}\n\
+        Time random max {} ms, cnt events at {} (Teig)",
+        VERSION, CURRENT_SEMANTICS, compile_date, compile_time, RANDOM_VAL_MAX_MS, MAX_SUM_CNT
     );
 }
 
@@ -243,6 +255,7 @@ fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPer
         cnts_per.ms_spontaneous_data_cnt,
         cnts_per.ms_spontaneous_data_err_cnt);
 
+    // Align columns with print_and_clear_slave_cnts
     #[rustfmt::skip] // Want block layout, not compact
     println_iff(
         LogLevel::CountersOnly,
@@ -260,7 +273,7 @@ fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPer
 
     *cnts_per = MasterCntsAndTimerPeriodic::default();
     cnts_per.print_time_prev = now;
-}
+} // print_and_clear_master_cnts
 
 fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     let now = Instant::now();
@@ -274,6 +287,7 @@ fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
         cnts_per.ms_spontaneous_data_cnt_1 + cnts_per.ms_spontaneous_data_cnt_2,
     );
 
+    // Align columns with print_and_clear_master_cnts
     #[rustfmt::skip] // Want block layout, not compact
     println_iff(
         LogLevel::CountersOnly,
@@ -292,7 +306,7 @@ fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     // Reset slave-counters
     *cnts_per = SlaveCnts::default();
     cnts_per.print_time_prev = now;
-}
+} // print_and_clear_slave_cnts
 
 fn update_master_view_fairness_cnts(cnts_per: &mut MasterCntsAndTimerPeriodic) {
     if cnts_per.sm_data_cnt > cnts_per.ms_spontaneous_data_cnt {
@@ -306,7 +320,6 @@ fn update_master_view_fairness_cnts(cnts_per: &mut MasterCntsAndTimerPeriodic) {
 
 // =============================================================================================
 // STATE TRANSITION HANDLING
-// Optional in XC, not so here
 // =============================================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -345,7 +358,7 @@ fn slave_set_knock_come_state(present_state: KnockComeState, new_state: KnockCom
                 assert_eq!(present_state, KnockComeState::SlaveSentKnock, "Invalid slave transition to SlaveGotCome!");
             }
             KnockComeState::SlaveSentDataNowReady => {
-                // No assertions needed here according to your XC code
+                // No assertions needed here
             }
             // Rust enforces that all enum variants must be covered.
             // If new_state is a Master-state, we fail immediately:
@@ -378,7 +391,7 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
                 assert_eq!(present_state, KnockComeState::MasterGotKnock, "Invalid master transition to MasterSentCome!");
             }
             KnockComeState::MasterGotDataNowReady => {
-                // No code since ..NOW_READY according to your XC code
+                // No code
             }
             // Catch-all to panic if the master attempts to use a Slave state
             _ => panic!("Master attempted to transition to an invalid state: {:?}", new_state),
@@ -403,10 +416,10 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
     let mut cnts_per = MasterCntsAndTimerPeriodic::default();
     let mut state = KnockComeState::MasterGotDataNowReady;
 
-    const CURRENT_SEND_MODE: MasterComeSendT = match USE_NESTED_SELECT {
-        0 => MasterComeSendT::TrySend,         // 0.0.915 changed, was SendAsynchAwait
-        1 => MasterComeSendT::SendAsynchAwait, // 0.0.915 changed, was TrySend
-        _ => MasterComeSendT::TrySend,         // 0.0.915 changed, was SendAsynchAwait
+    const CURRENT_SEND_MODE: MasterComeSendT = match CURRENT_SEMANTICS {
+        TaskSemantics::MasterTrySendSlaveSelect => MasterComeSendT::TrySend,
+        TaskSemantics::MasterSendSlaveNestedSelect => MasterComeSendT::SendAsynchAwait,
+        TaskSemantics::MasterForceSendSlaveSelectDeadlocks => MasterComeSendT::SendAsynchAwait,
     };
 
     print_and_clear_master_cnts(0, &mut cnts_per);
@@ -449,7 +462,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
                     // Receive the synchronous reply from the slave
                     let after_knock_come_data = ch_come_rx.recv_async().await;
 
-                    // Verify packet type and payload (matches xassert logic in XC)
+                    // Verify packet type and payload
                     match after_knock_come_data {
                         Ok(Message::SlaveData { val }) => {
                             // Verify that incoming slave data matches history + incremental step
@@ -554,11 +567,12 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
     let mut data_from_slave: ExchangedDataT = DATA_FIRST_AND_INC;
     let mut data_from_master: ExchangedDataT = 0; // History variable for ms_SpontaneousData
 
-    const CURRENT_SELECT_MODE: SlaveReceiveT = match USE_NESTED_SELECT {
-        0 => SlaveReceiveT::OneSelect,
-        1 => SlaveReceiveT::SelectPlusNestedSelect,
-        _ => SlaveReceiveT::OneSelect,
+    const CURRENT_SELECT_MODE: SlaveReceiveT = match CURRENT_SEMANTICS {
+        TaskSemantics::MasterTrySendSlaveSelect => SlaveReceiveT::OneSelect,
+        TaskSemantics::MasterSendSlaveNestedSelect => SlaveReceiveT::SelectPlusNestedSelect,
+        TaskSemantics::MasterForceSendSlaveSelectDeadlocks => SlaveReceiveT::OneSelect,
     };
+
     let mut cnts_per = SlaveCnts::default();
 
     print_and_clear_slave_cnts(20, &mut cnts_per);
