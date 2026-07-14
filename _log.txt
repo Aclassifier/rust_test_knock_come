@@ -1,4 +1,4 @@
-Rust KNOCK-COME v0.0.915 Mode: MasterTrySendSlaveSelect on 14Jul2026 13:14
+Rust KNOCK-COME v0.0.916 Mode: MasterTrySendSlaveSelect on 14Jul2026 13:14
 Time random max 99 ms, cnt events at 1000 (Teig)
 task_master and task_slave running in parallel forever
 //
@@ -9,7 +9,7 @@ M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 939/e47      MASTER-INC DT 48.43s
 S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 940+0=940               DT 48.60s
 M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 940/e48      MASTER-INC DT 48.60s
 
-Rust KNOCK-COME v0.0.915 Mode: MasterSendSlaveNestedSelect on 14Jul2026 13:17
+Rust KNOCK-COME v0.0.916 Mode: MasterSendSlaveNestedSelect on 14Jul2026 13:17
 Time random max 99 ms, cnt events at 1000 (Teig)
 task_master and task_slave running in parallel forever
 //
@@ -20,7 +20,7 @@ M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 983/e0       MASTER-INC DT 48.66s
 S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 953+22=975              DT 49.39s
 M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 975/e0       MASTER-INC DT 49.39s
 
-Rust KNOCK-COME v0.0.915 Mode: MasterForceSendSlaveSelectDeadlocks on 14Jul2026 13:19
+Rust KNOCK-COME v0.0.916 Mode: MasterForceSendSlaveSelectDeadlocks on 14Jul2026 13:19
 Time random max 99 ms, cnt events at 1000 (Teig)
 S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
 task_master and task_slave running in parallel forever
