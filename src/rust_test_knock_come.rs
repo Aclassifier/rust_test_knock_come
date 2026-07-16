@@ -1,7 +1,9 @@
 //! VERSION HISTORY
 //! Thanks to helpers Google AI and Claude. Thanks for knowing much more then me, and for some times letting me ask questions with corrected updates
 //! ================================================================================================================================================
-//! 14Jul2026 0.0.916 USE_NESTED_SELECT -> CURRENT_SEMANTICS. But does MasterForceSendSlaveSelectDeadlocks really deadlock?
+//! 16Jul2026 0.0.917 Trying to get the 0.0.911 version with the deadlock back with MasterForceSendSlaveSelect. Not tested, just this commit.
+//!                   MS_USE_CONSTANT_TIMEOUT is new. get_random_duration -> get_next_timeout. MasterForceSendSlaveSelectDeadlocks -> MasterForceSendSlaveSelect
+//! 14Jul2026 0.0.916 USE_NESTED_SELECT -> CURRENT_SEMANTICS. But does MasterForceSendSlaveSelect really deadlock?
 //! 13Jul2026 0.0.915 Also printing out cnts_per.ms_spontaneous_data_err_cnt on the master side (for USE_NESTED_SELECT 0)
 //!                   CURRENT_SEND_MODE was wrong! But mixing USE_NESTED_SELECT 0 or 1 on master is or seem to have been ok
 //!                   print_and_clear_slave_cnts caller was 20 all over!
@@ -67,7 +69,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.0.916";
+const VERSION: &str = "0.0.917";
 // =============================================================================================
 
 // =============================================================================================
@@ -77,18 +79,21 @@ const VERSION: &str = "0.0.916";
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum TaskSemantics {
-    MasterTrySendSlaveSelect,            // Tested and works
-    MasterSendSlaveNestedSelect,         // Tested and works
-    MasterForceSendSlaveSelectDeadlocks, // Hmmm. does it really deadlock?
+    MasterTrySendSlaveSelect,    // Tested and works
+    MasterSendSlaveNestedSelect, // Tested and works
+    MasterForceSendSlaveSelect,  // Deadlock as in 0.0.911 not tested with 0.0.917
 }
 
-const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelectDeadlocks;
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterTrySendSlaveSelect;
 
 #[rustfmt::skip]
 mod config {
-    pub const RANDOM_VAL_MIN_MS: u64 =    0;
-    pub const RANDOM_VAL_MAX_MS: u64 =   99;
-    pub const MAX_SUM_CNT:       u64 = 1000;
+    pub const RANDOM_VAL_MIN_MS:       u64  =     0;
+    pub const CONST_VAL_MS:            u64  =    50;
+    pub const RANDOM_VAL_MAX_MS:       u64  =    99;
+    pub const MAX_SUM_CNT:             u64  =  1000;
+    pub const MS_USE_CONSTANT_TIMEOUT: bool = false; // MS_: Master and Slave
+                                                     // Using CONST_VAL_MS instead of random [RANDOM_VAL_MIN_MS..RANDOM_VAL_MAX_MS]
 }
 use config::*;
 
@@ -231,8 +236,17 @@ fn print_welcome() {
 
     println!(
         "\nRust KNOCK-COME v{} Mode: {:?} on {} {}\n\
-        Time random max {} ms, cnt events at {} (Teig)",
-        VERSION, CURRENT_SEMANTICS, compile_date, compile_time, RANDOM_VAL_MAX_MS, MAX_SUM_CNT
+        Timeout {} ms, cnt events at {} (Teig)",
+        VERSION,
+        CURRENT_SEMANTICS,
+        compile_date,
+        compile_time,
+        if MS_USE_CONSTANT_TIMEOUT {
+            format!("{}", CONST_VAL_MS)
+        } else {
+            format!("{}..{}", RANDOM_VAL_MIN_MS, RANDOM_VAL_MAX_MS)
+        },
+        MAX_SUM_CNT
     );
 }
 
@@ -419,15 +433,19 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
     const CURRENT_SEND_MODE: MasterComeSendT = match CURRENT_SEMANTICS {
         TaskSemantics::MasterTrySendSlaveSelect => MasterComeSendT::TrySend,
         TaskSemantics::MasterSendSlaveNestedSelect => MasterComeSendT::SendAsynchAwait,
-        TaskSemantics::MasterForceSendSlaveSelectDeadlocks => MasterComeSendT::SendAsynchAwait,
+        TaskSemantics::MasterForceSendSlaveSelect => MasterComeSendT::SendAsynchAwait,
     };
 
     print_and_clear_master_cnts(0, &mut cnts_per);
 
-    // Helper closure/function to generate a new random duration
-    let get_random_duration = || {
-        let mut rng = rand::rng();
-        Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+    // Helper closure to generate a new duration based on selected models
+    let get_next_timeout = || {
+        if MS_USE_CONSTANT_TIMEOUT {
+            Duration::from_millis(CONST_VAL_MS)
+        } else {
+            let mut rng = rand::rng();
+            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+        }
     };
 
     // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
@@ -438,7 +456,9 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
     loop {
         // We use tokio::select! instead of flume::Selector to get strict event priority (PRI ALT / [[ordered]] select).
         // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
-        // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers.
+        // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers
+
+        local_timer.set(tokio::time::sleep(get_next_timeout()));
 
         tokio::select! {
             biased;
@@ -524,10 +544,9 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
                 } else {
                     cnts_per.ms_spontaneous_data_err_cnt += 1;
                 }
-
                 // Calculate the next timeout based on the PREVIOUS deadline to prevent timer drift.
                 // This ensures executing logic overhead does not delay subsequent intervals.
-                let next_timeout = local_timer.deadline() + get_random_duration();
+                let next_timeout = local_timer.deadline() + get_next_timeout();
                 local_timer.as_mut().reset(next_timeout);
             }
         }
@@ -570,25 +589,38 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
     const CURRENT_SELECT_MODE: SlaveReceiveT = match CURRENT_SEMANTICS {
         TaskSemantics::MasterTrySendSlaveSelect => SlaveReceiveT::OneSelect,
         TaskSemantics::MasterSendSlaveNestedSelect => SlaveReceiveT::SelectPlusNestedSelect,
-        TaskSemantics::MasterForceSendSlaveSelectDeadlocks => SlaveReceiveT::OneSelect,
+        TaskSemantics::MasterForceSendSlaveSelect => SlaveReceiveT::OneSelect,
     };
 
     let mut cnts_per = SlaveCnts::default();
 
     print_and_clear_slave_cnts(20, &mut cnts_per);
 
-    // Helper closure/function to generate a new random duration
-    let get_random_duration = || {
-        let mut rng = rand::rng();
-        Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+    // Helper closure to generate a new duration based on selected models
+    let get_next_timeout = || {
+        if MS_USE_CONSTANT_TIMEOUT {
+            Duration::from_millis(CONST_VAL_MS)
+        } else {
+            let mut rng = rand::rng();
+            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+        }
     };
 
-    // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
-    // See https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html
-    let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
-    tokio::pin!(local_timer);
+    // We only use the persistent REPTIMER model if we are NOT testing the forced-send deadlock semantics
+    let mut local_timer_opt: Option<std::pin::Pin<Box<tokio::time::Sleep>>> = if CURRENT_SEMANTICS != TaskSemantics::MasterForceSendSlaveSelect {
+        Some(Box::pin(tokio::time::sleep(Duration::from_millis(0))))
+    } else {
+        None
+    };
 
     loop {
+        if CURRENT_SEMANTICS == TaskSemantics::MasterForceSendSlaveSelect {
+            // Force recreation of a brand new timer every iteration to provoke the classic deadlock
+            local_timer_opt = Some(Box::pin(tokio::time::sleep(get_next_timeout())));
+        }
+
+        let mut timer_ref = local_timer_opt.as_mut().map(|p| p.as_mut());
+
         tokio::select! {
             biased;
 
@@ -625,16 +657,19 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
             }
 
             // CASE 2: Local Timer
-            _ = &mut local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
+            _ = async {
+                if let Some(ref mut timer) = timer_ref {
+                    timer.await;
+                } else {
+                    std::future::pending::<()>().await;
+                }
+            }, if state == KnockComeState::SlaveSentDataNowReady => {
 
-                let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
+                let _ = ch_knock_tx.send_async(()).await;
                 cnts_per.sm_knock_cnt += 1;
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
 
-                // Since SpontaneousData for USE_NESTED_SELECT 0 (with .try_send in task_master) may be "less than 1000" it's plain
-                // wrong to count ms_spontaneous_data_cnt_1 or ms_spontaneous_data_cnt_2 for printing:
-                //
                 if cnts_per.sm_knock_cnt % MAX_SUM_CNT == 0 {
                     print_and_clear_slave_cnts(21, &mut cnts_per);
                 } else { }
@@ -655,8 +690,6 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                             data_from_master = val;
                                             cnts_per.ms_spontaneous_data_cnt_2 += 1;
                                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
-
-                                            // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
                                         Message::Come => {
                                             cnts_per.ms_come_cnt += 1;
@@ -671,12 +704,20 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                 }
                             }
                         }
-                    } // end 'await_come: loop
+                    }
                 }
-                // Calculate the next timeout based on the PREVIOUS deadline to prevent timer drift.
-                // This ensures executing logic overhead does not delay subsequent intervals.
-                let next_timeout = local_timer.deadline() + get_random_duration();
-                local_timer.as_mut().reset(next_timeout);
+
+                // Final post-processing depending on the active semantics
+                if CURRENT_SEMANTICS != TaskSemantics::MasterForceSendSlaveSelect {
+                    // Modern drift-free approach: slide the deadline forward
+                    if let Some(ref mut timer) = timer_ref {
+                        let next_timeout = timer.deadline() + get_next_timeout();
+                        timer.as_mut().reset(next_timeout);
+                    }
+                } else {
+                    // Deadlock testing semantics: completely drop the instance to clear the time base
+                    local_timer_opt = None;
+                }
             }
         }
     }
