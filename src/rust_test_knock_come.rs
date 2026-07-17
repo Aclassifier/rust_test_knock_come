@@ -1,6 +1,7 @@
 //! VERSION HISTORY
 //! Thanks to helpers Google AI and Claude. Thanks for knowing much more then me, and for some times letting me ask questions with corrected updates
 //! ================================================================================================================================================
+//! 17Jul2026 v0.918  Removing the non pin! version of _local timer in task_slave, removing unnecessary complexity in v0.917
 //! 17Jul2026 v0.917  New version numbering. Have made several branches to find the version that deadlocked - it was v0.030
 //!                   Stored under /src_frozen_versions/v0.917_rust_test_knock_come.rs since this seems to be a max complexity
 //! 16Jul2026 0.0.917 Trying to get the 0.0.911 version with the deadlock back with MasterForceSendSlaveSelect. Not tested, just this commit.
@@ -72,7 +73,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "v0.917";
+const VERSION: &str = "0.918";
 // =============================================================================================
 
 // =============================================================================================
@@ -82,22 +83,22 @@ const VERSION: &str = "v0.917";
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum TaskSemantics {
-    MasterTrySendSlaveSelect,    // Tested and works
-    MasterSendSlaveNestedSelect, // Tested and works
-    MasterForceSendSlaveSelect,  // Deadlock as in 0.0.911 not tested with 0.0.917
-}
+    MasterTrySendSlaveSelect,
+    MasterSendSlaveNestedSelect,
+    MasterForceSendSlaveSelect,
+} // enum
 
-const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterTrySendSlaveSelect;
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
 
 #[rustfmt::skip]
 mod config {
     pub const RANDOM_VAL_MIN_MS:       u64  =     0;
-    pub const CONST_VAL_MS:            u64  =    50;
+    pub const CONST_VAL_MS:            u64  =    50; // Provided MS_USE_CONSTANT_TIMEOUT true
     pub const RANDOM_VAL_MAX_MS:       u64  =    99;
     pub const MAX_SUM_CNT:             u64  =  1000;
     pub const MS_USE_CONSTANT_TIMEOUT: bool = false; // MS_: Master and Slave
                                                      // Using CONST_VAL_MS instead of random [RANDOM_VAL_MIN_MS..RANDOM_VAL_MAX_MS]
-}
+} // mod
 use config::*;
 
 // Coloumn layout common for print_and_clear_master_cnts and print_and_clear_slave_cnts
@@ -124,7 +125,7 @@ enum Message {
     SpontaneousData { val: ExchangedDataT },
     Come, // No data
     SlaveData { val: ExchangedDataT },
-}
+} // enum
 
 // =============================================================================================
 // CONTROL LOGGING
@@ -136,7 +137,7 @@ enum LogLevel {
     None,
     CountersOnly,
     All,
-}
+} // enum
 
 // Set this to choose what you want to see
 const CURRENT_LOG_LEVEL: LogLevel = LogLevel::CountersOnly; // None, CountersOnly or All
@@ -148,7 +149,7 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
     } else if CURRENT_LOG_LEVEL == LogLevel::CountersOnly && level == LogLevel::CountersOnly {
         println!("{}", args);
     }
-}
+} // fn println_iff
 
 // =============================================================================================
 // CODE PROPER
@@ -158,12 +159,12 @@ fn println_iff(level: LogLevel, args: std::fmt::Arguments) {
 enum MasterComeSendT {
     TrySend,
     SendAsynchAwait,
-}
+} // enum
 #[derive(PartialEq)]
 enum SlaveReceiveT {
     OneSelect,
     SelectPlusNestedSelect,
-}
+} // enum
 
 type ExchangedDataT = u32;
 const DATA_FIRST_AND_INC: ExchangedDataT = 1;
@@ -188,7 +189,7 @@ struct MasterCntsAndTimerPeriodic {
     master_same_cnt: u32,
     master_thinner_cnt: u32,
     print_time_prev: Instant,
-}
+} // struct
 
 impl Default for MasterCntsAndTimerPeriodic {
     fn default() -> Self {
@@ -204,7 +205,7 @@ impl Default for MasterCntsAndTimerPeriodic {
             print_time_prev: Instant::now(),
         }
     }
-}
+} // Default
 
 #[derive(Debug, Clone, Copy)]
 struct SlaveCnts {
@@ -214,7 +215,7 @@ struct SlaveCnts {
     ms_spontaneous_data_cnt_1: u64,
     ms_spontaneous_data_cnt_2: u64,
     print_time_prev: Instant,
-}
+} // struct
 
 impl Default for SlaveCnts {
     fn default() -> Self {
@@ -227,7 +228,7 @@ impl Default for SlaveCnts {
             print_time_prev: Instant::now(),
         }
     }
-}
+} // impl Default for
 
 fn print_welcome() {
     // Fetches the current local time from your iMac during startup
@@ -251,7 +252,7 @@ fn print_welcome() {
         },
         MAX_SUM_CNT
     );
-}
+} // fn print_welcome
 
 fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPeriodic) {
     // Calculate delta seconds since the last printout
@@ -290,7 +291,7 @@ fn print_and_clear_master_cnts(caller: u64, cnts_per: &mut MasterCntsAndTimerPer
 
     *cnts_per = MasterCntsAndTimerPeriodic::default();
     cnts_per.print_time_prev = now;
-} // print_and_clear_master_cnts
+} // fn print_and_clear_master_cnts
 
 fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     let now = Instant::now();
@@ -323,7 +324,7 @@ fn print_and_clear_slave_cnts(caller: u64, cnts_per: &mut SlaveCnts) {
     // Reset slave-counters
     *cnts_per = SlaveCnts::default();
     cnts_per.print_time_prev = now;
-} // print_and_clear_slave_cnts
+} // fn print_and_clear_slave_cnts
 
 fn update_master_view_fairness_cnts(cnts_per: &mut MasterCntsAndTimerPeriodic) {
     if cnts_per.sm_data_cnt > cnts_per.ms_spontaneous_data_cnt {
@@ -333,7 +334,7 @@ fn update_master_view_fairness_cnts(cnts_per: &mut MasterCntsAndTimerPeriodic) {
     } else {
         cnts_per.master_same_cnt += 1;
     }
-}
+} // fn update_master_view_fairness_cnts
 
 // =============================================================================================
 // STATE TRANSITION HANDLING
@@ -385,7 +386,7 @@ fn slave_set_knock_come_state(present_state: KnockComeState, new_state: KnockCom
 
     // Return the new state (no 'return' keyword needed on the last line in Rust)
     new_state
-}
+} // fn slave_set_knock_come_state
 
 /// master_set_knock_come_state transitions the master's state from the current value to a new value.
 ///
@@ -417,7 +418,7 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
 
     // Return the new state implicitly by omitting the semicolon
     new_state
-}
+} // fn master_set_knock_come_state
 
 /// task_master
 ///
@@ -554,7 +555,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
             }
         }
     }
-}
+} // asynch fn task_master
 
 /// after_knock_come_data_send
 ///
@@ -574,7 +575,7 @@ async fn after_knock_come_data_send(state: &mut KnockComeState, ch_come_tx: &flu
 
     *data_from_slave += DATA_FIRST_AND_INC;
     *state = slave_set_knock_come_state(*state, KnockComeState::SlaveSentDataNowReady);
-} // after_knock_come_data_send
+} // asynch fn after_knock_come_data_send
 
 /// task_slave
 ///
@@ -609,20 +610,13 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
         }
     };
 
-    // We only use the persistent REPTIMER model if we are NOT testing the forced-send deadlock semantics
-    let mut local_timer_opt: Option<std::pin::Pin<Box<tokio::time::Sleep>>> = if CURRENT_SEMANTICS != TaskSemantics::MasterForceSendSlaveSelect {
-        Some(Box::pin(tokio::time::sleep(Duration::from_millis(0))))
-    } else {
-        None
-    };
+    // Create the initial timer and pin it to the stack so tokio::select! can use it mutably
+    // See https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html
+    let local_timer = tokio::time::sleep(Duration::from_millis(RANDOM_VAL_MIN_MS));
+    tokio::pin!(local_timer);
 
     loop {
-        if CURRENT_SEMANTICS == TaskSemantics::MasterForceSendSlaveSelect {
-            // Force recreation of a brand new timer every iteration to provoke the classic deadlock
-            local_timer_opt = Some(Box::pin(tokio::time::sleep(get_next_timeout())));
-        }
-
-        let mut timer_ref = local_timer_opt.as_mut().map(|p| p.as_mut());
+        local_timer.set(tokio::time::sleep(get_next_timeout()));
 
         tokio::select! {
             biased;
@@ -660,19 +654,16 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
             }
 
             // CASE 2: Local Timer
-            _ = async {
-                if let Some(ref mut timer) = timer_ref {
-                    timer.await;
-                } else {
-                    std::future::pending::<()>().await;
-                }
-            }, if state == KnockComeState::SlaveSentDataNowReady => {
+            _ = &mut local_timer, if state == KnockComeState::SlaveSentDataNowReady => {
 
-                let _ = ch_knock_tx.send_async(()).await;
+                let _ = ch_knock_tx.send_async(()).await; // .try_send not needed here
                 cnts_per.sm_knock_cnt += 1;
                 state = slave_set_knock_come_state(state, KnockComeState::SlaveSentKnock);
                 println_iff(LogLevel::All, format_args!("[Slave] Local timeout tick. Knock signal sent! State -> SlaveSentKnock"));
 
+                // Since SpontaneousData for USE_NESTED_SELECT 0 (with .try_send in task_master) may be "less than 1000" it's plain
+                // wrong to count ms_spontaneous_data_cnt_1 or ms_spontaneous_data_cnt_2 for printing:
+                //
                 if cnts_per.sm_knock_cnt % MAX_SUM_CNT == 0 {
                     print_and_clear_slave_cnts(21, &mut cnts_per);
                 } else { }
@@ -693,6 +684,8 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                             data_from_master = val;
                                             cnts_per.ms_spontaneous_data_cnt_2 += 1;
                                             println_iff(LogLevel::All, format_args!("[Slave] Processed spontaneous data from Master: {}", data_from_master));
+
+                                            // NOT break 'await_come; since we must stay tuned until Come has been received
                                         }
                                         Message::Come => {
                                             cnts_per.ms_come_cnt += 1;
@@ -707,24 +700,16 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
                                 }
                             }
                         }
-                    }
+                    } // end 'await_come: loop
                 }
-
-                // Final post-processing depending on the active semantics
-                if CURRENT_SEMANTICS != TaskSemantics::MasterForceSendSlaveSelect {
-                    // Modern drift-free approach: slide the deadline forward
-                    if let Some(ref mut timer) = timer_ref {
-                        let next_timeout = timer.deadline() + get_next_timeout();
-                        timer.as_mut().reset(next_timeout);
-                    }
-                } else {
-                    // Deadlock testing semantics: completely drop the instance to clear the time base
-                    local_timer_opt = None;
-                }
+                // Calculate the next timeout based on the PREVIOUS deadline to prevent timer drift.
+                // This ensures executing logic overhead does not delay subsequent intervals.
+                let next_timeout = local_timer.deadline() + get_next_timeout();
+                local_timer.as_mut().reset(next_timeout);
             }
         }
     }
-} // asynch task slave
+} // async fn task_slave
 
 const CHAN_STREAMING_CAP_1: usize = 1;
 const CHAN_SYNCH_CAP_0: usize = 0;
@@ -757,4 +742,4 @@ async fn main() {
     // Since I already have done spawn
     task_slave_handle.await.unwrap();
     task_master_handle.await.unwrap();
-}
+} // async fn main
