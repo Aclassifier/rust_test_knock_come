@@ -1,0 +1,16 @@
+{
+    // Hide the directory from the VS Code file explorer (optional)
+    "files.exclude": {
+        "src_frozen_versions": true
+    },
+
+    // Stop VS Code from watching file changes inside this directory
+    "files.watcherExclude": {
+        "**/src_frozen_versions/**": true
+    },
+
+    // Explicitly tell rust-analyzer to ignore the directory
+    "rust-analyzer.files.excludeDirs": [
+        "src_frozen_versions"
+    ]
+}
