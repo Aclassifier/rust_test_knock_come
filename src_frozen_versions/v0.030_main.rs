@@ -3,8 +3,9 @@
 // =============================================================================================
 // VERSIONS / COMMITS
 // =============================================================================================
+// 17Jul2026 v0.030.2  Commented about missing "biased"
 // 16Jul2026 0.0.030.1 This deadlocks immediately. See AI-analysis this day. Prints only:
-//                     System running. Tasks joined in a PAR-equivalent block.
+//                     "System running. Tasks joined in a PAR-equivalent block".
 // 16Jun2026 0.0.030   Knock channel converted to a pure signal channel using unit type (). (No data)
 //                     (Google AI mode added most of the above line itself!)
 // 16Jun2026 0.0.020   Runs with knock-come, but data are not as wanted
@@ -15,7 +16,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 const RANDOM_VAL_MIN_MS: u64 = 0;
-const RANDOM_VAL_MAX_MS: u64 = 100;
+const RANDOM_VAL_MAX_MS: u64 = 100; // 99 is correct!
 
 // Since tasks run forever, we only need to pass actual data
 #[derive(Clone)] // Since the compiler does not know the full functionality of flume::Selector
@@ -55,7 +56,8 @@ async fn task_a_slave(
             let _ = tx_timer.send_async(()).await;
         });
 
-        let event = flume::Selector::new()
+        // Missing optional "biased" as with tokio.select! will cause knock-come pattern deadlock! 
+        let event = flume::Selector::new() // Based on "fairnes"
             .recv(&ch_ba_come_or_data_rx, |res| {
                 SlaveEvent::ComeOrDataReceived(res)
             })
@@ -106,7 +108,8 @@ async fn task_b_master(
             let _ = tx_timer.send_async(()).await;
         });
 
-        let event = flume::Selector::new()
+        // Missing optional "biased" as with tokio.select! will cause knock-come pattern deadlock! 
+        let event = flume::Selector::new() // Based on "fairnes"
             .recv(&ch_ab_knock_rx, |res| MasterEvent::KnockReceived(res))
             .recv(&rx_timer, |_| MasterEvent::TimeoutOccurred)
             .wait();
