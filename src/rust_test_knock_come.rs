@@ -11,6 +11,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 18Jul2026 v.0919  Again, local local_timer.set(...) in each loop that destroys timing and adds a lot of skew! Grrrmf..
 //! 18Jul2026 v0.918  Google AI did not succeed with the Pages concept. Maybe I should just read https://docs.github.com/en/pages
 //! 18Jul2026 v0.918  Testing out "cargo doc --open" and /.github/workflows/deploy.yml created , so that I GitHub will show the doc file
 //!                   for those who don't have Rust installed (I hope).
@@ -79,7 +80,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.918";
+const VERSION: &str = "0.919";
 // =============================================================================================
 
 // =============================================================================================
@@ -474,8 +475,6 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
         // Flume's lack of ordering caused race-condition deadlocks when timeouts and channel events overlapped.
         // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers
 
-        local_timer.set(tokio::time::sleep(get_next_timeout()));
-
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
             biased;
 
@@ -632,10 +631,9 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
     tokio::pin!(local_timer);
 
     loop {
-        local_timer.set(tokio::time::sleep(get_next_timeout()));
-
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
-            biased;
+
+            biased; // Cannot be conditionally wrapped
 
             // CASE 1: Receive from master (Always active)
             spontaneous_data_or_come = ch_come_or_sdata_rx.recv_async() => {
