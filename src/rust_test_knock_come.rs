@@ -11,6 +11,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 18Jul2026 v.0920  Removed "biased" from master and testing its use in slave. See _log.txt
 //! 18Jul2026 v.0919  Full _log.txt
 //! 18Jul2026 v.0919  Again, local local_timer.set(...) in each loop that destroys timing and adds a lot of skew! Grrrmf..
 //! 18Jul2026 v0.918  Google AI did not succeed with the Pages concept. Maybe I should just read https://docs.github.com/en/pages
@@ -81,7 +82,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.919";
+const VERSION: &str = "0.920";
 // =============================================================================================
 
 // =============================================================================================
@@ -96,7 +97,7 @@ enum TaskSemantics {
     MasterForceSendSlaveSelect,
 } // enum
 
-const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterSendSlaveNestedSelect;
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
 
 #[rustfmt::skip]
 mod config {
@@ -477,7 +478,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
         // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers
 
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
-            biased;
+            // biased; // Not needed here. Removed on v0.920
 
             // CASE 1: Receive Knock from Slave
             knock_res = ch_knock_rx.recv_async() =>
@@ -633,8 +634,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
 
     loop {
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
-
-            biased; // Cannot be conditionally wrapped
+            biased; // Rust macro read by tokio::select! during code generation, cannot be conditional
 
             // CASE 1: Receive from master (Always active)
             spontaneous_data_or_come = ch_come_or_sdata_rx.recv_async() => {
