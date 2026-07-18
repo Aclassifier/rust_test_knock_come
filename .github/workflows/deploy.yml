@@ -29,11 +29,11 @@ jobs:
       - name: Generate Rustdoc
         run: cargo doc --no-deps
 
-      - name: Disable Jekyll and Copy Readme
+      - name: Setup Root Pages Entry
         run: |
-          # Copy README.md as the main entry point for the site root
+          # Copy README.md as the entry point at the root level of target/doc
           cp README.md target/doc/index.md
-          # Ensure GitHub does not block underscore directories
+          # Ensure GitHub does not block directories with underscores
           touch target/doc/.nojekyll
 
       - name: Setup Pages
