@@ -18,7 +18,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps: deployment.outputs.page_url }}rust_test_knock_come/index.html
+      url: ${{ steps.deployment.outputs.page_url }}rust_test_knock_come/index.html
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
