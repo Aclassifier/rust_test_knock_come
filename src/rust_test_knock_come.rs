@@ -11,8 +11,9 @@
 //! ### Version history
 //!
 //! ```text
+//! 18Jul2026 v0.918  Google AI did not succeed with the Pages concept. Maybe I should just read https://docs.github.com/en/pages
 //! 18Jul2026 v0.918  Testing out "cargo doc --open" and /.github/workflows/deploy.yml created , so that I GitHub will show the doc file
-//!                   for those who don't have Rust installed (I hope)
+//!                   for those who don't have Rust installed (I hope).
 //! 17Jul2026 v0.918  Removing the non pin! version of _local timer in task_slave, removing unnecessary complexity in v0.917
 //! 17Jul2026 v0.917  New version numbering. Have made several branches to find the version that deadlocked - it was v0.030
 //!                   Stored under /src_frozen_versions/v0.917_rust_test_knock_come.rs since this seems to be a max complexity
