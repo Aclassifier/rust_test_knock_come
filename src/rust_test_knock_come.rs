@@ -11,6 +11,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 18Jul2026 v.0919  Full _log.txt
 //! 18Jul2026 v.0919  Again, local local_timer.set(...) in each loop that destroys timing and adds a lot of skew! Grrrmf..
 //! 18Jul2026 v0.918  Google AI did not succeed with the Pages concept. Maybe I should just read https://docs.github.com/en/pages
 //! 18Jul2026 v0.918  Testing out "cargo doc --open" and /.github/workflows/deploy.yml created , so that I GitHub will show the doc file

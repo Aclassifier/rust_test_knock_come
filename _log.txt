@@ -1,3 +1,14 @@
+Rust KNOCK-COME v0.919 Mode: MasterTrySendSlaveSelect on 18Jul2026 17:20
+Timeout 0..99 ms, cnt events at 1000 (Teig)
+task_master and task_slave running in parallel forever
+//
+S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
+M @0   KNOCK    0 COME    0 DATA    0 SDATA 0/e0         MASTER-EQL DT  0.00s
+S @21  KNOCK 1000 COME  999 SENT  999 SDATA 950+0=950               DT 49.60s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 950/e32      MASTER-INC DT 49.60s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 994+0=994               DT 51.85s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 994/e29      MASTER-INC DT 51.85s
+
 Rust KNOCK-COME v0.919 Mode: MasterSendSlaveNestedSelect on 18Jul2026 17:15
 Timeout 0..99 ms, cnt events at 1000 (Teig)
 task_master and task_slave running in parallel forever
@@ -10,3 +21,20 @@ M @2   KNOCK  996 COME  996 DATA  996 SDATA 1000/e0      MASTER-DEC DT 49.69s
 S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 992+12=1004             DT 49.77s
 M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 969/e0       MASTER-INC DT 49.69s
 S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 957+15=972              DT 49.84s
+
+Rust KNOCK-COME v0.919 Mode: MasterForceSendSlaveSelect on 18Jul2026 17:22
+Timeout 0..99 ms, cnt events at 1000 (Teig)
+task_master and task_slave running in parallel forever
+//
+S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
+M @0   KNOCK    0 COME    0 DATA    0 SDATA 0/e0         MASTER-EQL DT  0.00s
+S @21  KNOCK 1000 COME  999 SENT  999 SDATA 947+0=947               DT 47.21s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 947/e0       MASTER-INC DT 47.21s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 993+0=993               DT 49.86s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 993/e0       MASTER-INC DT 49.86s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 967+0=967               DT 48.35s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 967/e0       MASTER-INC DT 48.35s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 983+0=983               DT 49.36s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 983/e0       MASTER-INC DT 49.36s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 999+0=999               DT 49.48s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 999/e0       MASTER-INC DT 49.48s
