@@ -431,12 +431,6 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
 
 /// task_master receives knocks, responds with come and atomically waits for data. May send sdata any time
 ///
-/// # Fairness
-///
-/// The "fairness" argument of not having "biased" on `flume::Selector` is the same as Golang not having prioritised select, either.
-/// A select branch that may almost never happen may indeed starve. Controlling fairness is indeed possible with "biased".
-/// Read at <https://www.teigfam.net/oyvind/home/technology/049-nondeterminism/#-nondeterministic_selective_choice_in_implementations_is_not_good>
-///
 /// # Arguments
 ///
 /// * `ch_knock_rx` - [channel receiving knock signals]
@@ -594,7 +588,9 @@ async fn after_knock_come_data_send(state: &mut KnockComeState, ch_come_tx: &flu
 ///
 /// # Fairness
 ///
-/// See `task_master`
+/// The "fairness" argument of not having "biased" on `flume::Selector` is the same as Golang not having prioritised select, either.
+/// A select branch that may almost never happen may indeed starve. Controlling fairness is indeed possible with "biased".
+/// Read at <https://www.teigfam.net/oyvind/home/technology/049-nondeterminism/#-nondeterministic_selective_choice_in_implementations_is_not_good>
 ///
 /// # Arguments
 ///
