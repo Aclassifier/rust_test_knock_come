@@ -32,6 +32,10 @@ jobs:
       - name: Fix GitHub Pages underscore bug (Jekyll)
         run: touch target/doc/.nojekyll
 
+      - name: Create Automatic Redirect Root Homepage
+        run: |
+          echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=./rust_test_knock_come/index.html" /><script>window.location.replace("./rust_test_knock_come/index.html")</script></head><body><a href="./rust_test_knock_come/index.html">Redirecting to documentation...</a></body></html>' > target/doc/index.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
