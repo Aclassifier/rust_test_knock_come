@@ -6,4 +6,4 @@ This is "my" first ever Rust project. I have used the Google AI mode to help me.
 
 Also see https://github.com/Aclassifier/xc_test_knock_come
 
-👉 **[Click here to view Rust API Source Documentation](https://github.io)**
+[👉 **[Click here to view Rust API Source Documentation](https://github.io)**](https://docs.github.com/en/pages)
