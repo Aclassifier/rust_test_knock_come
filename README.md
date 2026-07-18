@@ -5,5 +5,3 @@ This is an implementation of the Knock-come pattern as described in the above no
 This is "my" first ever Rust project. I have used the Google AI mode to help me. It was like having a sometimes failing but then soon up again with next try friend beside me. Good for a retired alone sitting person! 
 
 Also see https://github.com/Aclassifier/xc_test_knock_come
-
-👉 **[Click here to view Rust API Source Documentation](./rust_test_knock_come/index.html)**
