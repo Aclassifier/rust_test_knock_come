@@ -1,11 +1,24 @@
-//! VERSION HISTORY
-//! Thanks to helpers Google AI and Claude. Thanks for knowing much more then me, and for some times letting me ask questions with corrected updates
-//! ================================================================================================================================================
+//! ### The "knock-come" deadlock free pattern
+//! ```text
+//! Øyvind Teig, Trondheim, Norway
+//! This was "my" first Rust code. Thanks to pair programming with Google AI and Claude!
+//! ```
+//!
+//! ### Resources
+//! * **Blog note:** [The knock-come deadlock free pattern](https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/)
+//! * **GitHub:** [rust_test_knock_come](<https://github.com/Aclassifier/rust_test_knock_come>)
+//!
+//! ### Version history
+//!
+//! ```text
+//! 18Jul2026 v0.918  Testing out "cargo doc --open" and /.github/workflows/deploy.yml created , so that I GitHub will show the doc file
+//!                   for those who don't have Rust installed (I hope)
 //! 17Jul2026 v0.918  Removing the non pin! version of _local timer in task_slave, removing unnecessary complexity in v0.917
 //! 17Jul2026 v0.917  New version numbering. Have made several branches to find the version that deadlocked - it was v0.030
 //!                   Stored under /src_frozen_versions/v0.917_rust_test_knock_come.rs since this seems to be a max complexity
 //! 16Jul2026 0.0.917 Trying to get the 0.0.911 version with the deadlock back with MasterForceSendSlaveSelect. Not tested, just this commit.
-//!                   MS_USE_CONSTANT_TIMEOUT is new. get_random_duration -> get_next_timeout. MasterForceSendSlaveSelectDeadlocks -> MasterForceSendSlaveSelect
+//!                   MS_USE_CONSTANT_TIMEOUT is new. get_random_duration -> get_next_timeout.
+//!                   MasterForceSendSlaveSelectDeadlocks -> MasterForceSendSlaveSelect
 //! 14Jul2026 0.0.916 USE_NESTED_SELECT -> CURRENT_SEMANTICS. But does MasterForceSendSlaveSelect really deadlock?
 //! 13Jul2026 0.0.915 Also printing out cnts_per.ms_spontaneous_data_err_cnt on the master side (for USE_NESTED_SELECT 0)
 //!                   CURRENT_SEND_MODE was wrong! But mixing USE_NESTED_SELECT 0 or 1 on master is or seem to have been ok
@@ -59,15 +72,7 @@
 //! 17Jul2026 v0.030  0.0.030 stored in /src_frozen_versions/v0.030_main.rs since this deadlocked
 //! 16Jun2026 0.0.020 Runs with knock-come, but data are not as wanted
 //! 15Jun2026 0.0.010 First version, runs but no knock-come
-
-// =============================================================================================
-// THE KNOCK-COME DEADLOCK FREE PATTERN
-// Øyvind Teig, Trondheim, Norway
-//     This was "my" first Rust code. Thanks to pair programming with Google AI!
-// Blog note:
-//     https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/
-// GitHub:
-//     https://github.com/Aclassifier/rust_test_knock_come
+//! ```
 
 use rand::Rng;
 use std::time::Duration;
@@ -88,7 +93,7 @@ enum TaskSemantics {
     MasterForceSendSlaveSelect,
 } // enum
 
-const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterSendSlaveNestedSelect;
 
 #[rustfmt::skip]
 mod config {
@@ -420,7 +425,13 @@ fn master_set_knock_come_state(present_state: KnockComeState, new_state: KnockCo
     new_state
 } // fn master_set_knock_come_state
 
-/// task_master
+/// task_master receives knocks, responds with come and atomically waits for data. May send sdata any time
+///
+/// # Fairness
+///
+/// The "fairness" argument of not having "biased" on `flume::Selector` is the same as Golang not having prioritised select, either.
+/// A select branch that may almost never happen may indeed starve. Controlling fairness is indeed possible with "biased".
+/// Read at <https://www.teigfam.net/oyvind/home/technology/049-nondeterminism/#-nondeterministic_selective_choice_in_implementations_is_not_good>
 ///
 /// # Arguments
 ///
@@ -464,7 +475,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
 
         local_timer.set(tokio::time::sleep(get_next_timeout()));
 
-        tokio::select! {
+        tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
             biased;
 
             // CASE 1: Receive Knock from Slave
@@ -579,6 +590,10 @@ async fn after_knock_come_data_send(state: &mut KnockComeState, ch_come_tx: &flu
 
 /// task_slave
 ///
+/// # Fairness
+///
+/// See `task_master`
+///
 /// # Arguments
 ///
 /// * `ch_knock_tx` - The flume channel used for sending local timeout knock signals.
@@ -618,7 +633,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
     loop {
         local_timer.set(tokio::time::sleep(get_next_timeout()));
 
-        tokio::select! {
+        tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
             biased;
 
             // CASE 1: Receive from master (Always active)
