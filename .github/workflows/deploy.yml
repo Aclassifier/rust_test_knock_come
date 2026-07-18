@@ -29,16 +29,12 @@ jobs:
       - name: Generate Rustdoc
         run: cargo doc --no-deps
 
-      - name: Prepare combined site folder
+      - name: Disable Jekyll and Copy Readme
         run: |
-          # Create a temporary staging folder
-          mkdir _site
-          # Copy the generated Rust documentation into it
-          cp -r target/doc/* _site/
-          # Copy your README.md into it so GitHub can render it as the home page
-          cp README.md _site/index.md
-          # Prevent Jekyll from blocking files with underscores
-          touch _site/.nojekyll
+          # Copy README.md as the main entry point for the site root
+          cp README.md target/doc/index.md
+          # Ensure GitHub does not block underscore directories
+          touch target/doc/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -46,7 +42,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: target/doc
 
       - name: Deploy to GitHub Pages
         id: deployment
