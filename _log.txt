@@ -1,5 +1,5 @@
 === No "biased" in master ==
-=== None of the three logs of v`0.920` seems to indicate any deadlock ===
+=== None of the three logs of v0.920 seems to indicate any deadlock ===
 
 Rust KNOCK-COME v0.920 Mode: MasterTrySendSlaveSelect on 18Jul2026 17:52
 Timeout 0..99 ms, cnt events at 1000 (Teig)
