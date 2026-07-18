@@ -29,6 +29,9 @@ jobs:
       - name: Generate Rustdoc
         run: cargo doc --no-deps
 
+      - name: Fix GitHub Pages underscore bug (Jekyll)
+        run: touch target/doc/.nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
