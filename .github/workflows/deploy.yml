@@ -29,22 +29,16 @@ jobs:
       - name: Generate Rustdoc
         run: cargo doc --no-deps
 
-      - name: Fix GitHub Pages underscore bug (Jekyll)
-        run: touch target/doc/.nojekyll
-
-      - name: Create Smart Redirect Root Homepage
+      - name: Prepare combined site folder
         run: |
-          echo '<!DOCTYPE html><html><head><script>
-          // Automatically find the generated documentation folder and redirect
-          fetch("./crates.js").then(r => r.text()).then(t => {
-            window.location.replace("./index.html");
-          }).catch(() => {
-            // Fallback: look for any subfolder with an index.html if the root is bare
-            const base = window.location.pathname.split("/")[1];
-            window.location.replace("/" + base + "/implement_knock_come/index.html");
-          });
-          // Direct meta refresh fallback to the binary module
-          </script><meta http-equiv="refresh" content="0; url=./implement_knock_come/index.html" /></head><body><a href="./implement_knock_come/index.html">Redirecting to documentation...</a></body></html>' > target/doc/index.html
+          # Create a temporary staging folder
+          mkdir _site
+          # Copy the generated Rust documentation into it
+          cp -r target/doc/* _site/
+          # Copy your README.md into it so GitHub can render it as the home page
+          cp README.md _site/index.md
+          # Prevent Jekyll from blocking files with underscores
+          touch _site/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -52,7 +46,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: target/doc
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
