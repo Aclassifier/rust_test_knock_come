@@ -5,15 +5,18 @@
 //! ```
 //!
 //! ### Resources
-//! * **Blog note:** [The knock-come deadlock free pattern](https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/)
-//! * **GitHub:** [rust_test_knock_come](<https://github.com/Aclassifier/rust_test_knock_come>)
+//! * **My blog note:** [The knock-come deadlock free pattern](https://www.teigfam.net/oyvind/home/technology/009-the-knock-come-deadlock-free-pattern/)
+//! * **My GitHub:** [rust_test_knock_come](<https://github.com/Aclassifier/rust_test_knock_come>)
+//! * **Tokio:** [Crate tokio](<https://docs.rs/tokio/latest/tokio/>)
+//! * **Discussion:** ["Knock-come" solving a problem but my tokio implementation seems to reintroduce it](<https://github.com/tokio-rs/tokio/discussions/8220>)
 //!
 //! ### Version history
 //!
 //! ```text
-//! 18Jul2026 v.0920  Removed "biased" from master and testing its use in slave. See _log.txt
-//! 18Jul2026 v.0919  Full _log.txt
-//! 18Jul2026 v.0919  Again, local local_timer.set(...) in each loop that destroys timing and adds a lot of skew! Grrrmf..
+//! 21Jul2026 v0.920  Just a comment about MasterForceSendSlaveSelect, that it should? deadlock. Added Tokio as resources above
+//! 18Jul2026 v0.920  Removed "biased" from master and testing its use in slave. See _log.txt
+//! 18Jul2026 v0.919  Full _log.txt
+//! 18Jul2026 v0.919  Again, local local_timer.set(...) in each loop that destroys timing and adds a lot of skew! Grrrmf..
 //! 18Jul2026 v0.918  Google AI did not succeed with the Pages concept. Maybe I should just read https://docs.github.com/en/pages
 //! 18Jul2026 v0.918  Testing out "cargo doc --open" and /.github/workflows/deploy.yml created , so that I GitHub will show the doc file
 //!                   for those who don't have Rust installed (I hope).
@@ -94,7 +97,7 @@ const VERSION: &str = "0.920";
 enum TaskSemantics {
     MasterTrySendSlaveSelect,
     MasterSendSlaveNestedSelect,
-    MasterForceSendSlaveSelect,
+    MasterForceSendSlaveSelect, // It probably should deadlock, but the log just goes on
 } // enum
 
 const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
