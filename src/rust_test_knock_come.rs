@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 23Jul2026 v0.920  "Comments from the Tokio docs" (Tokio) and GitHub as synch between my machines
 //! 21Jul2026 v0.920  Just a comment about MasterForceSendSlaveSelect, that it should? deadlock. Added Tokio as resources above
 //! 18Jul2026 v0.920  Removed "biased" from master and testing its use in slave. See _log.txt
 //! 18Jul2026 v0.919  Full _log.txt
@@ -729,6 +730,9 @@ const CHAN_STREAMING_CAP_1: usize = 1;
 const CHAN_SYNCH_CAP_0: usize = 0;
 
 #[tokio::main]
+// "A runtime for writing reliable network applications without compromising speed.
+//  Tokio is an event-driven, non-blocking I/O platform for writing asynchronous
+//  applications with the Rust programming language." (Tokio)
 
 /// Application entry point that initializes asynchronous channels and spawns concurrent tasks.
 ///
@@ -746,6 +750,10 @@ async fn main() {
         let (ch_knock_tx,         ch_knock_rx)         : (flume::Sender<()>,      flume::Receiver<()>)      = flume::bounded(CHAN_STREAMING_CAP_1);
         let (ch_come_or_sdata_tx, ch_come_or_sdata_rx) : (flume::Sender<Message>, flume::Receiver<Message>) = flume::bounded(CHAN_SYNCH_CAP_0);
         let (ch_come_tx,          ch_come_rx)          : (flume::Sender<Message>, flume::Receiver<Message>) = flume::bounded(CHAN_SYNCH_CAP_0);
+
+        // "Asynchronous programs in Rust are based around lightweight, non-blocking units of execution called tasks.
+        //  The tokio::task module provides important tools for working with tasks" (Tokio)
+        // But my usage here is mostly "synchronous", with sync "Synchronization primitives for use in asynchronous contexts."
 
         let task_slave_handle  : tokio::task::JoinHandle<()> = tokio::spawn(task_slave (ch_knock_tx, ch_come_or_sdata_rx, ch_come_tx));
         let task_master_handle : tokio::task::JoinHandle<()> = tokio::spawn(task_master(ch_knock_rx, ch_come_or_sdata_tx, ch_come_rx));
