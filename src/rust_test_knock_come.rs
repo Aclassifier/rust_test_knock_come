@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 23Jul2027 v0.921  Removed "biased" from master too. I think it should deadlock sooner or later. About it in print_welcome
 //! 23Jul2026 v0.920  "Comments from the Tokio docs" (Tokio) and GitHub as synch between my machines
 //! 21Jul2026 v0.920  Just a comment about MasterForceSendSlaveSelect, that it should? deadlock. Added Tokio as resources above
 //! 18Jul2026 v0.920  Removed "biased" from master and testing its use in slave. See _log.txt
@@ -86,7 +87,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.920";
+const VERSION: &str = "0.921";
 // =============================================================================================
 
 // =============================================================================================
@@ -252,8 +253,8 @@ fn print_welcome() {
     let compile_time = local_time.format("%H:%M").to_string();
 
     println!(
-        "\nRust KNOCK-COME v{} Mode: {:?} on {} {}\n\
-        Timeout {} ms, cnt events at {} (Teig)",
+        "\nRust KNOCK-COME v{} (Teig) Mode: {:?} on {} {}\n\
+        Timeout {} ms, cnt events at {}\nNo \"biased\" in master, slave\n",
         VERSION,
         CURRENT_SEMANTICS,
         compile_date,
@@ -476,7 +477,7 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
         // Additionally, Tokio's native sleep avoids the overhead of spawning background tasks for timers
 
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
-            // biased; // Not needed here. Removed on v0.920
+            // biased; // Not needed here. Removed on v0.920 (update print_welcome)
 
             // CASE 1: Receive Knock from Slave
             knock_res = ch_knock_rx.recv_async() =>
@@ -634,7 +635,7 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
 
     loop {
         tokio::select! { // flume::Selector::new() not used. It is based on fairness, and does npt have "biased" [**]
-            biased; // Rust macro read by tokio::select! during code generation, cannot be conditional
+            // biased; // v0.921 commented away (update print_welcome). I think it should deadlock sooner or later. Rust macro read by tokio::select! during code generation, cannot be conditional
 
             // CASE 1: Receive from master (Always active)
             spontaneous_data_or_come = ch_come_or_sdata_rx.recv_async() => {
