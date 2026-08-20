@@ -1,39 +1,29 @@
-=== No "biased" in master ==
-=== None of the three logs of v0.920 seems to indicate any deadlock ===
+python3 /Users/teig/Documents/_Dokumenter/Oyvind/_PROSJEKT/GitHub/python/scripts/analyze_20Aug2026.py 
+Drag and drop your log file here and press Enter: /Users/teig/Documents/_Dokumenter/Oyvind/_PROSJEKT/GitHub/rust/workspace/rust_test_knock_come/_log.txt 
 
-Rust KNOCK-COME v0.920 Mode: MasterTrySendSlaveSelect on 18Jul2026 17:52
-Timeout 0..99 ms, cnt events at 1000 (Teig)
-task_master and task_slave running in parallel forever
-//
-S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
-M @0   KNOCK    0 COME    0 DATA    0 SDATA 0/e0         MASTER-EQL DT  0.00s
-S @21  KNOCK 1000 COME  999 SENT  999 SDATA 945+0=945               DT 48.84s
-M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 945/e36      MASTER-INC DT 48.84s
-S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 988+0=988               DT 50.26s
-M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 988/e31      MASTER-INC DT 50.26s
-S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 969+0=969               DT 48.32s
-M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 969/e32      MASTER-INC DT 48.32s
+--- Statistics ---
+Total lines parsed: 2028
+Master  -> Average DT: 48.98s | SDATA: 989.11
+Slave   -> Average DT: 49.51s | SDATA: 999.76
 
-Rust KNOCK-COME v0.920 Mode: MasterSendSlaveNestedSelect on 18Jul2026 17:48
-Timeout 0..99 ms, cnt events at 1000 (Teig)
-task_master and task_slave running in parallel forever
-//
-S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
-M @0   KNOCK    0 COME    0 DATA    0 SDATA 0/e0         MASTER-EQL DT  0.00s
-M @2   KNOCK  984 COME  984 DATA  984 SDATA 1000/e0      MASTER-DEC DT 49.19s
-S @21  KNOCK 1000 COME  999 SENT  999 SDATA 999+16=1015             DT 50.14s
-M @2   KNOCK  995 COME  995 DATA  995 SDATA 1000/e0      MASTER-DEC DT 49.86s
-S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 976+26=1002             DT 49.68s
-M @2   KNOCK  981 COME  981 DATA  981 SDATA 1000/e0      MASTER-DEC DT 48.52s
-S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 1001+19=1020            DT 49.78s
+Opening chart window... Close the window to exit the script.
 
-Rust KNOCK-COME v0.920 Mode: MasterForceSendSlaveSelect on 18Jul2026 17:55
-Timeout 0..99 ms, cnt events at 1000 (Teig)
+===
+
+Rust KNOCK-COME v0.921 (Teig) Mode: MasterForceSendSlaveSelect on ...
+Timeout 0..99 ms, cnt events at 1000
+No "biased" in master, slave
+
 task_master and task_slave running in parallel forever
-//
-S @20  KNOCK    0 COME    0 SENT    0 SDATA 0+0=0                   DT  0.00s
-M @0   KNOCK    0 COME    0 DATA    0 SDATA 0/e0         MASTER-EQL DT  0.00s
-M @2   KNOCK  981 COME  981 DATA  981 SDATA 1000/e0      MASTER-DEC DT 48.04s
-S @21  KNOCK 1000 COME  999 SENT  999 SDATA 1020+0=1020             DT 48.92s
-M @2   KNOCK  974 COME  974 DATA  974 SDATA 1000/e0      MASTER-DEC DT 48.52s
-S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 1025+0=1025             DT 49.98s
+
+===LOG:
+
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 982/e0       MASTER-INC DT 47.71s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 1014+0=1014             DT 50.33s
+M @2   KNOCK  960 COME  960 DATA  960 SDATA 1000/e0      MASTER-DEC DT 49.26s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 1017+0=1017             DT 50.58s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 984/e0       MASTER-INC DT 49.41s
+S @21  KNOCK 1000 COME 1000 SENT 1000 SDATA 962+0=962               DT 49.59s
+M @1   KNOCK 1000 COME 1000 DATA 1000 SDATA 973/e0       MASTER-INC DT 50.20s
+
+The rest of the log dropped, but the analysis above is for 2028

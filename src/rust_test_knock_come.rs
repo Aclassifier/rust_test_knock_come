@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 20Aug2026 v0.921  Just a new _log.txt and log analysis python script
 //! 24Jul2027 v0.921  Removed "biased" from master too. I think it should deadlock sooner or later. About it in print_welcome
 //! 23Jul2026 v0.920  "Comments from the Tokio docs" (Tokio) and GitHub as synch between my machines
 //! 21Jul2026 v0.920  Just a comment about MasterForceSendSlaveSelect, that it should? deadlock. Added Tokio as resources above
