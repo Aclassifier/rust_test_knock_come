@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 29Aug2026 0.9.22  VERSION now follows Follows SemVer. Added build_app.sh to build macOS app that prints to a Terminal window, else Run-button in VS Code here also works
 //! 20Aug2026 v0.921  Just a new _log.txt and log analysis python script
 //! 24Jul2027 v0.921  Removed "biased" from master too. I think it should deadlock sooner or later. About it in print_welcome
 //! 23Jul2026 v0.920  "Comments from the Tokio docs" (Tokio) and GitHub as synch between my machines
@@ -88,7 +89,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.921";
+const VERSION: &str = "0.9.22"; // Follows SemVer 
 // =============================================================================================
 
 // =============================================================================================
@@ -100,7 +101,7 @@ const VERSION: &str = "0.921";
 enum TaskSemantics {
     MasterTrySendSlaveSelect,
     MasterSendSlaveNestedSelect,
-    MasterForceSendSlaveSelect, // It probably should deadlock, but the log just goes on
+    MasterForceSendSlaveSelect, // It probably should deadlock, but the log just goes on. For app KnockComeForce
 } // enum
 
 const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
@@ -747,6 +748,41 @@ const CHAN_SYNCH_CAP_0: usize = 0;
 /// execution handles are unwrapped upon completion.
 ///
 async fn main() {
+    // This block is ONLY compiled on macOS and uses pure standard library commands
+    #[cfg(target_os = "macos")]
+    {
+        // Check our own parent process name directly via the macOS 'ps' command
+        if let Ok(output) = std::process::Command::new("ps")
+            .args(&["-p", &std::process::id().to_string(), "-o", "ppid="])
+            .output()
+        {
+            let ppid_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            
+            // Now get the name of that parent process ID
+            if let Ok(parent_output) = std::process::Command::new("ps")
+                .args(&["-p", &ppid_str, "-o", "comm="])
+                .output()
+            {
+                let parent_name = String::from_utf8_lossy(&parent_output.stdout);
+                
+                // If the parent process is 'launchd', it was double-clicked in Finder!
+                if parent_name.contains("launchd") {
+                    let current_exe = std::env::current_exe().expect("Failed to get current exe path");
+                    let script = format!(
+                        "tell application \"Terminal\" to do script \"'{}'; exit\"",
+                        current_exe.to_string_lossy()
+                    );
+                    
+                    let _ = std::process::Command::new("osascript")
+                        .args(&["-e", &script])
+                        .spawn();
+                        
+                    std::process::exit(0);
+                }
+            }
+        }
+    }
+
     print_welcome();
     code_block! {
         let (ch_knock_tx,         ch_knock_rx)         : (flume::Sender<()>,      flume::Receiver<()>)      = flume::bounded(CHAN_STREAMING_CAP_1);

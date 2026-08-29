@@ -1,6 +1,7 @@
 [package]
 name = "rust_test_knock_come"
-version = "0.1.0"
+version = "0.1.0" # IDE/run-button dummy version. Overwritten from source code by IDE or build_app.sh
+# Rust language edition standard (Latest available in 2026):
 edition = "2024"
 default-run = "rust_test_knock_come" 
 
@@ -10,6 +11,17 @@ tokio = { version = "1.52.3", features = ["full"] }
 rand = "0.9"
 chrono = "0.4"
 
-[[bin]] # many [[bin]] allowed (array)
+[[bin]]
 name = "rust_test_knock_come"
 path = "src/rust_test_knock_come.rs"
+
+# =====================================================================
+# macOS App Bundle Metadata
+# NOTE: The name and version below are placeholders automatically
+# detected and overwritten by './build_app.sh' during compilation.
+# =====================================================================
+[package.metadata.bundle]
+name = "APP_NAME_PLACEHOLDER"
+version = "0.1.0" # App bundle dummy version. Overwritten from source code by build_app.sh
+identifier = "net.teigfam.knockcome"
+short_description = "The knock-come deadlock free pattern"
