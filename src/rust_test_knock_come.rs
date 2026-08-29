@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 29Aug2026 0.0.23  Name of macOS Terminal window controlled, when started by the app
 //! 29Aug2026 0.9.22  VERSION now follows Follows SemVer. Added build_app.sh to build macOS app that prints to a Terminal window, else Run-button in VS Code here also works
 //! 20Aug2026 v0.921  Just a new _log.txt and log analysis python script
 //! 24Jul2027 v0.921  Removed "biased" from master too. I think it should deadlock sooner or later. About it in print_welcome
@@ -89,7 +90,7 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-const VERSION: &str = "0.9.22"; // Follows SemVer 
+const VERSION: &str = "0.9.23"; // Follows SemVer 
 // =============================================================================================
 
 // =============================================================================================
@@ -247,6 +248,19 @@ impl Default for SlaveCnts {
 } // impl Default for
 
 fn print_welcome() {
+
+    // Determine the exact App Name based on CURRENT_SEMANTICS
+    // This matches the exact naming logic used in build_app.sh
+    let app_name = match CURRENT_SEMANTICS {
+        TaskSemantics::MasterForceSendSlaveSelect => "KnockComeForce",
+        TaskSemantics::MasterTrySendSlaveSelect => "KnockComeTry",
+        TaskSemantics::MasterSendSlaveNestedSelect => "KnockComeNested",
+    };
+
+    // Format and set the dynamic terminal window title (100% portable)
+    #[cfg(target_os = "macos")]
+    print!("\x1b]2;{}.app\x07", app_name);
+
     // Fetches the current local time from your iMac during startup
     let local_time = chrono::Local::now();
 
