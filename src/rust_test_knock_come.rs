@@ -91,14 +91,12 @@ use rand::Rng;
 use std::time::Duration;
 
 // =============================================================================================
-// Follows Semantic Versioning (MAJOR.MINOR.PATCH) - https://semver.org 
-// Also used by build_app.sh
-const VERSION: &str = "0.9.24"; // SemVer
-// =============================================================================================
-
-// =============================================================================================
 // GLOBALS
 // =============================================================================================
+
+// VERSION Semantic Versioning (MAJOR.MINOR.PATCH) - https://semver.org 
+// Also used by build_app.sh
+const VERSION: &str = "0.9.24"; // SemVer
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Debug)]
