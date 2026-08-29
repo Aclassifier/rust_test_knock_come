@@ -1,9 +1,9 @@
 [package]
-name = "rust_test_knock_come"
+name = "BIN_NAME_PLACEHOLDER"
 version = "0.1.0" # IDE/run-button dummy version. Overwritten from source code by IDE or build_app.sh
 # Rust language edition standard (Latest available in 2026):
 edition = "2024"
-default-run = "rust_test_knock_come" 
+default-run = "BIN_NAME_PLACEHOLDER" 
 
 [dependencies]
 flume = { version = "0.12.0", features = ["async", "select"] }
@@ -12,7 +12,7 @@ rand = "0.9"
 chrono = "0.4"
 
 [[bin]]
-name = "rust_test_knock_come"
+name = "BIN_NAME_PLACEHOLDER"
 path = "src/rust_test_knock_come.rs"
 
 # =====================================================================

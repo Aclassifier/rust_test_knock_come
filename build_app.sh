@@ -15,14 +15,14 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-# 2. Extract the CURRENT_SEMANTICS value from the source file
+# 2. Extract the current semantics enum variant
 SEMANTICS=$(grep 'const CURRENT_SEMANTICS:' "$SOURCE_FILE" | sed -E 's/.*TaskSemantics::([^; ]+).*/\1/')
 if [ -z "$SEMANTICS" ]; then
     echo "❌ Error: Could not extract CURRENT_SEMANTICS from source code."
     exit 1
 fi
 
-# 3. Dynamic Name Extraction (Simulating the match statement in your Rust file)
+# 3. Determine the application name based on the extracted semantics value
 if [[ "$SEMANTICS" == *"MasterForceSendSlaveSelect"* ]]; then
     APP_NAME="KnockComeForce"
 elif [[ "$SEMANTICS" == *"MasterTrySendSlaveSelect"* ]]; then
@@ -31,23 +31,29 @@ else
     APP_NAME="KnockComeNested"
 fi
 
-echo "🍏 Successfully Parsed from Source:"
-echo "   -> Version:   $VERSION"
-echo "   -> Semantics: $SEMANTICS"
-echo "   -> App Name:  $APP_NAME"
-echo ""
-echo "📝 Injecting targets into Cargo.toml..."
+# Format the process binary name to lowercase for Activity Monitor
+BIN_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
 
-# 4. Use a flexible regex substitution that catches placeholders even with inline comments
+echo "🍏 Found in source code:"
+echo "   -> Version:     $VERSION"
+echo "   -> Semantics:   $SEMANTICS"
+echo "   -> App Bundle:  $APP_NAME.app"
+echo "   -> Process ID:  $BIN_NAME"
+echo ""
+echo "📝 Temporarily injecting targets into Cargo.toml..."
+
+# 4. Inject variables into Cargo.toml placeholders safely
 perl -pi -e "s/APP_NAME_PLACEHOLDER/$APP_NAME/g" Cargo.toml
+perl -pi -e "s/BIN_NAME_PLACEHOLDER/$BIN_NAME/g" Cargo.toml
 perl -pi -e "s/\"0\.1\.0\"/\"$VERSION\"/g" Cargo.toml
 
 echo "🚀 Bundling macOS app..."
 if cargo bundle --release; then
     echo "✨ Done! Opening target directory..."
     
-    # 5. Restore default version and placeholders safely (retains comments)
+    # 5. Restore default version and placeholders safely (preserving comments)
     perl -pi -e "s/$APP_NAME/APP_NAME_PLACEHOLDER/g" Cargo.toml
+    perl -pi -e "s/$BIN_NAME/BIN_NAME_PLACEHOLDER/g" Cargo.toml
     perl -pi -e "s/\"$VERSION\"/\"0.1.0\"/g" Cargo.toml
     
     # Open the compiled app location
@@ -55,8 +61,9 @@ if cargo bundle --release; then
 else
     echo "❌ Error: 'cargo bundle' failed."
     
-    # Fallback cleanup to prevent locking Cargo.toml into a bad state
+    # Fallback cleanup to keep Cargo.toml stable even on compilation failure
     perl -pi -e "s/$APP_NAME/APP_NAME_PLACEHOLDER/g" Cargo.toml
+    perl -pi -e "s/$BIN_NAME/BIN_NAME_PLACEHOLDER/g" Cargo.toml
     perl -pi -e "s/\"$VERSION\"/\"0.1.0\"/g" Cargo.toml
     exit 1
 fi
