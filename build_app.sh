@@ -1,4 +1,6 @@
-#!/bin/zsh
+#!/bin/zsh 
+# "shebang" The Z shell (Zsh) is an interpreted language for shell scripts used for command-line interpretation
+# Run it from a terminal window at the project directory with ./build_app.sh
 
 SOURCE_FILE="src/rust_test_knock_come.rs"
 
