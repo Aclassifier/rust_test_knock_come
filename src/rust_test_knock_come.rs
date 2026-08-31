@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 31Aug2026 0.9.26  New build_app.sh that uses APP_NAME from this file and Cargo.toml Cargo.toml.bak taken and restored by script
 //! 29Aug2026 0.9.25  Runable code as seen in macOS Activity Monitor now reflects CURRENT_APP_NAME with small letters
 //! 29Aug2026 0.9.24  Name of app also controlled by CURRENT_SEMANTICS with CURRENT_APP_NAME
 //! 29Aug2026 0.9.23  Name of macOS Terminal window controlled, when started by the app
@@ -97,7 +98,7 @@ use std::time::Duration;
 
 // VERSION Semantic Versioning (MAJOR.MINOR.PATCH) - https://semver.org 
 // Also used by build_app.sh
-const VERSION: &str = "0.9.25"; // SemVer
+const VERSION: &str = "0.9.26"; // SemVer
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -107,7 +108,7 @@ enum TaskSemantics {
     MasterForceSendSlaveSelect, // It probably should deadlock, but the log just goes on. For app KnockComeForce
 } // enum
 
-const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterTrySendSlaveSelect;
+const CURRENT_SEMANTICS: TaskSemantics = TaskSemantics::MasterForceSendSlaveSelect;
                                               
 const CURRENT_APP_NAME: &str = match CURRENT_SEMANTICS { // Name for Terminal window and the .app as built by build_app.sh
     //                                                                   macOS Activity Monitor name of runable
