@@ -4,7 +4,7 @@ See the "knock-come" described at https://www.teigfam.net/oyvind/home/technology
 
 This is an implementation of the Knock-come pattern as described in the above note.
 
-This is "my" first ever Rust project. I have used the Google AI mode to help me. It was like having a sometimes failing but then soon up again with next try friend beside me. Good for a retired alone sitting person! 
+This is my first ever Rust project. I have used Google AI (Gemini). It was like having en expert friend beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it this code wouldn't have existed!
 
 Also see https://github.com/Aclassifier/xc_test_knock_come
 
