@@ -25,3 +25,7 @@ name = "APP_NAME_PLACEHOLDER"
 version = "0.1.0" # App bundle dummy version. Overwritten from source code by build_app.sh
 identifier = "net.teigfam.knockcome"
 short_description = "The knock-come deadlock free pattern"
+# --- Recommended macOS additions ---
+icon = ["assets/icon.icns"] # Path to the macOS icon file (.icns format)
+copyright = "Copyright © 2026 teigfam.net. All rights reserved." # Displayed in Finder's "Get Info" panel
+category = "DeveloperTool" # Defines the application category for macOS system integration

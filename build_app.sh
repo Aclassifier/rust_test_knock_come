@@ -62,6 +62,7 @@ perl -pi -e "s/\"BIN_NAME_PLACEHOLDER\"/\"$BIN_NAME\"/g" Cargo.toml
 perl -pi -e "s/\"0\.1\.0\"/\"$VERSION\"/g" Cargo.toml
 
 echo "🚀 Bundling macOS app..."
+# See [package.metadata.bundle] in Cargo.toml
 cargo bundle --release
 BUILD_STATUS=$?
 
