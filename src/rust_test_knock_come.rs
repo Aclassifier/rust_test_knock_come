@@ -478,8 +478,8 @@ async fn task_master(ch_knock_rx: flume::Receiver<()>, ch_come_or_sdata_tx: flum
         if MS_USE_CONSTANT_TIMEOUT {
             Duration::from_millis(CONST_VAL_MS)
         } else {
-            let mut rng = rand::rng();
-            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+            let mut rng = rand::rng(); // Using pseudorandom ChaCha12 
+            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)) // ..= is including range [x..y]
         }
     };
 
@@ -640,8 +640,8 @@ async fn task_slave(ch_knock_tx: flume::Sender<()>, ch_come_or_sdata_rx: flume::
         if MS_USE_CONSTANT_TIMEOUT {
             Duration::from_millis(CONST_VAL_MS)
         } else {
-            let mut rng = rand::rng();
-            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS))
+            let mut rng = rand::rng(); // Using pseudorandom ChaCha12
+            Duration::from_millis(rng.random_range(RANDOM_VAL_MIN_MS..=RANDOM_VAL_MAX_MS)) // ..= is including range [x..y]
         }
     };
 
