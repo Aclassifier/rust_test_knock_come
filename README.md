@@ -22,6 +22,6 @@ The project includes a robust automation workflow through the `build_app.sh` scr
 
 ## Acknowledgment
 
-I have used Gemini (Google AI) as a great helper during the development. It was like having an expert friend beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it, this code wouldn't have existed!
+I have used Gemini (Google AI) as a great sparring partner during the development. It was like having an expert "friend" beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it, this code wouldn't have existed!
 
 Initially I also tested Claude (Anthropic), but hourly usage limits led me away from it.
