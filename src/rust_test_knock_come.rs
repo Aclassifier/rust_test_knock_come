@@ -13,6 +13,7 @@
 //! ### Version history
 //!
 //! ```text
+//! 01Sep2026 0.9.26  Added "Gemini <gemini-ai@google.com>" as co-author in thr commit
 //! 31Aug2026 0.9.26  New build_app.sh that uses APP_NAME from this file and Cargo.toml Cargo.toml.bak taken and restored by script
 //! 29Aug2026 0.9.25  Runable code as seen in macOS Activity Monitor now reflects CURRENT_APP_NAME with small letters
 //! 29Aug2026 0.9.24  Name of app also controlled by CURRENT_SEMANTICS with CURRENT_APP_NAME
