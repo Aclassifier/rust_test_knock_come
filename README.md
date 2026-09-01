@@ -4,7 +4,7 @@ See the "knock-come" described at https://www.teigfam.net/oyvind/home/technology
 
 This is an implementation of the Knock-come pattern as described in the above note.
 
-This is my first ever Rust project. I have used Google AI (Gemini). It was like having an expert friend beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it this code wouldn't have existed!
+This is my first ever Rust project. 
 
 Also see https://github.com/Aclassifier/xc_test_knock_come
 
@@ -17,5 +17,9 @@ The project includes a robust automation workflow through the `build_app.sh` scr
 * **Safe configuration injecting:** To package the application with context-specific metadata without altering project files permanently, the script creates a temporary backup (`Cargo.toml.bak`) and injects the extracted strings into placeholder slots in `Cargo.toml`
 * **Zero-side-effect bundling:** It triggers the compilation via `cargo bundle --release`. Immediately after compilation—regardless of success or failure—the modified configuration is discarded and the pristine, original `Cargo.toml` is fully restored from the backup, ensuring a clean and failure-proof build cycle
 * **The newer** `cargo-packager` should  in the future perhaps be used instead of `cargo-bundle`
+
+## Acknowledgments
+
+I have used Google AI (Gemini) as a great helper during the development. It was like having an expert friend beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it this code wouldn't have existed!
 
 
