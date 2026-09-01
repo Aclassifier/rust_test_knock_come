@@ -18,7 +18,7 @@ The project includes a robust automation workflow through the `build_app.sh` scr
 * **Zero-side-effect bundling:** It triggers the compilation via `cargo bundle --release`. Immediately after compilation—regardless of success or failure—the modified configuration is discarded and the pristine, original `Cargo.toml` is fully restored from the backup, ensuring a clean and failure-proof build cycle
 * **The newer** `cargo-packager` should  in the future perhaps be used instead of `cargo-bundle`
 
-## Acknowledgments
+## Acknowledgment
 
 I have used Google AI (Gemini) as a great helper during the development. It was like having an expert friend beside me. One to ask, trust and doubt - over and over. Good for a retired person sitting alone! Without it, this code wouldn't have existed!
 
